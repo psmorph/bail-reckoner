@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backyard Rain Gauge Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col lg:flex-row">
+  <aside class="w-full lg:w-80 bg-slate-900 border-r border-slate-800 p-6 flex flex-col justify-between shrink-0">
+    <div>
+      <div class="mb-8">
+        <p class="text-xs font-semibold tracking-widest text-slate-400 uppercase mb-1">Station</p>
+        <h1 class="text-xl font-bold text-white tracking-wide">Backyard Rain Gauge</h1>
+        <p class="text-xs text-slate-400 mt-2 flex items-center gap-1">📍 Bandra West, Mumbai</p>
+        <p id="updated-at" class="text-xs text-slate-500 mt-1">Waiting for ESP-12F…</p>
+      </div>
+      <div class="bg-slate-800/50 rounded-2xl p-5 border border-slate-800 mb-6">
+        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Rainfall Today</p>
+        <div class="flex items-baseline gap-2 mb-3"><span id="rainfall-today" class="text-4xl font-extrabold text-blue-400">—</span><span class="text-slate-400 font-medium">mm</span></div>
+        <span id="rain-status" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20"><span class="h-2 w-2 rounded-full bg-blue-400 animate-pulse"></span><span>Connecting</span></span>
+      </div>
+    </div>
+    <div class="bg-slate-800/30 rounded-xl p-4 border border-slate-800/80 text-center">
+      <div id="bucket-icon" class="text-2xl mb-1">🌧️</div>
+      <p class="text-xs text-slate-400 uppercase tracking-wide">Tipping-Bucket Sensor</p>
+      <p class="text-lg font-bold text-white mt-1"><span id="sidebar-tips">—</span> <span class="text-xs font-normal text-slate-400">tips logged today</span></p>
+    </div>
+  </aside>
+  <main class="flex-1 p-4 lg:p-8 overflow-y-auto">
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-slate-800">
+      <div><h2 class="text-2xl font-bold text-white">Welcome back — here's today's readout</h2><p class="text-sm text-slate-400 mt-1">Live tip data from your ESP-12F rain gauge</p></div>
+      <div id="connection-badge" class="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full text-xs font-medium self-start sm:self-auto"><span class="h-2 w-2 rounded-full bg-amber-400"></span><span>ESP-12F Connecting</span></div>
+    </header>
+    <section class="bg-slate-900 rounded-2xl p-6 border border-slate-800 mb-8 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"><div><h3 id="chart-title" class="font-bold text-white text-lg">Tips per hour</h3><p class="text-xs text-slate-400">Visualization of precipitation over time</p></div><div id="range-buttons" class="flex bg-slate-800 p-1 rounded-xl border border-slate-700/60 text-xs"><button data-range="12h" class="range-btn px-3 py-1.5 rounded-lg font-medium bg-blue-600 text-white shadow">12H</button><button data-range="24h" class="range-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition">24H</button><button data-range="7d" class="range-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition">7D</button></div></div>
+      <div class="h-64 w-full"><canvas id="rainChart"></canvas></div>
+    </section>
+    <section class="bg-slate-900 rounded-2xl p-6 border border-slate-800 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm"><div><h3 class="font-bold text-white">Export rainfall data</h3><p class="text-xs text-slate-400 mt-0.5">Download logged records as a spreadsheet for reporting</p></div><div class="flex items-center gap-3 w-full sm:w-auto"><select id="csv-range" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-500"><option value="hourly">Hourly</option><option value="daily">Daily</option><option value="monthly">Monthly</option></select><button id="download-csv" type="button" class="flex-1 sm:flex-none text-center bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs px-4 py-2.5 rounded-xl transition duration-200 shadow-lg shadow-blue-600/20">📥 Download CSV</button></div></section>
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800"><p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Total Tips</p><p id="total-tips" class="text-3xl font-extrabold text-white">—</p><div class="w-full bg-slate-800 h-1.5 rounded-full mt-4 overflow-hidden"><div id="tips-bar" class="bg-blue-500 h-full rounded-full" style="width:0%"></div></div></div>
+      <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800"><p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Total Volume</p><p class="text-3xl font-extrabold text-blue-400"><span id="total-volume">—</span> <span class="text-sm font-normal text-slate-400">mL</span></p><div class="w-full bg-slate-800 h-1.5 rounded-full mt-4 overflow-hidden"><div id="volume-bar" class="bg-blue-500 h-full rounded-full" style="width:0%"></div></div></div>
+      <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800"><p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Current Rainfall Rate</p><p class="text-3xl font-extrabold text-white"><span id="rain-rate">—</span> <span class="text-sm font-normal text-slate-400">mm/hr</span></p><div class="w-full bg-slate-800 h-1.5 rounded-full mt-4 overflow-hidden"><div id="rate-bar" class="bg-emerald-500 h-full rounded-full" style="width:0%"></div></div></div>
+      <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800"><p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Last Tip Event</p><p class="text-3xl font-extrabold text-white"><span id="last-tip">—</span> <span class="text-sm font-normal text-slate-400">ago</span></p><div class="w-full bg-slate-800 h-1.5 rounded-full mt-4 overflow-hidden"><div id="last-tip-bar" class="bg-blue-500 h-full rounded-full" style="width:0%"></div></div></div>
+      <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800"><p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Tip Interval Average</p><p class="text-3xl font-extrabold text-white"><span id="tip-interval">—</span> <span class="text-sm font-normal text-slate-400">sec avg</span></p><div class="w-full bg-slate-800 h-1.5 rounded-full mt-4 overflow-hidden"><div id="interval-bar" class="bg-blue-500 h-full rounded-full" style="width:0%"></div></div></div>
+      <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between"><div><p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">System Control</p><p class="text-sm text-slate-300">Reset counters &amp; clear flash logs</p></div><button id="reset-hardware" class="w-full mt-4 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-medium py-2 rounded-xl transition">Reset Hardware Counter</button></div>
+    </section>
+    <footer class="text-center text-xs text-slate-500 pb-4">Calibration: <span id="calibration">7.0</span> ml/tip &bull; Funnel area: 78.5 cm² &bull; ESP8266 Web Server Active</footer>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
