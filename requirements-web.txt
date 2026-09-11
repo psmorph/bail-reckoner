@@ -1,0 +1,6 @@
+# Additional dependencies for the Bail Reckoner web frontend
+# Install alongside the existing requirements.txt:
+#   pip install -r requirements-web.txt
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.6

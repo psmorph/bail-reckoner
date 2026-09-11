@@ -1,0 +1,922 @@
+/* =============================================================================
+   BAIL RECKONER — Page-Specific Styles
+   Unique styles for individual pages beyond the design system and components.
+   ============================================================================= */
+
+/* ===== LANDING PAGE ======================================================== */
+
+.landing-page {
+    background: var(--neutral-0);
+}
+
+.landing-hero {
+    padding: calc(var(--navbar-height) + var(--space-16)) var(--space-6) var(--space-16);
+    background: linear-gradient(175deg, var(--neutral-0) 0%, var(--primary-50) 40%, var(--neutral-50) 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.landing-hero::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(circle, rgba(67, 97, 238, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.hero-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-16);
+    align-items: center;
+}
+
+.hero-text .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px 16px;
+    background: var(--primary-50);
+    border: 1px solid var(--primary-200);
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--primary-700);
+    margin-bottom: var(--space-6);
+}
+
+.hero-text h1 {
+    font-size: var(--text-5xl);
+    font-weight: var(--weight-extrabold);
+    line-height: 1.1;
+    color: var(--neutral-900);
+    letter-spacing: -1px;
+    margin-bottom: var(--space-6);
+}
+
+.hero-text h1 .highlight {
+    color: var(--primary-500);
+}
+
+.hero-text .hero-subtitle {
+    font-size: var(--text-lg);
+    line-height: var(--leading-relaxed);
+    color: var(--neutral-600);
+    max-width: 540px;
+    margin-bottom: var(--space-8);
+}
+
+.hero-ctas {
+    display: flex;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.hero-disclaimer {
+    margin-top: var(--space-8);
+    padding: var(--space-3) var(--space-4);
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid var(--warning-200);
+    border-radius: var(--radius-md);
+    font-size: var(--text-xs);
+    color: var(--warning-700);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    max-width: 540px;
+}
+
+/* --- Hero Dashboard Preview --- */
+.hero-visual {
+    position: relative;
+    z-index: 1;
+}
+
+.dashboard-preview {
+    background: var(--neutral-0);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    padding: var(--space-5);
+    transform: perspective(1200px) rotateY(-6deg) rotateX(3deg);
+    transition: transform 0.5s ease;
+}
+
+.dashboard-preview:hover {
+    transform: perspective(1200px) rotateY(-2deg) rotateX(1deg);
+}
+
+.preview-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.preview-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.preview-dot.red { background: #FF5F57; }
+.preview-dot.yellow { background: #FFBD2E; }
+.preview-dot.green { background: #28CA41; }
+
+.preview-title {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    margin-left: var(--space-2);
+}
+
+.preview-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.preview-stat {
+    padding: var(--space-3);
+    background: var(--neutral-50);
+    border-radius: var(--radius-md);
+}
+
+.preview-stat .p-label {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.preview-stat .p-value {
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    color: var(--text-primary);
+    margin-top: 2px;
+}
+
+.preview-charges {
+    margin-bottom: var(--space-4);
+}
+
+.preview-charge-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--neutral-100);
+    font-size: 11px;
+}
+
+.preview-charge-row:last-child {
+    border-bottom: none;
+}
+
+.preview-timeline {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--neutral-50);
+    border-radius: var(--radius-md);
+}
+
+.preview-timeline-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary-400);
+}
+
+.preview-timeline-line {
+    flex: 1;
+    height: 2px;
+    background: var(--neutral-200);
+    position: relative;
+}
+
+.preview-timeline-line::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 60%;
+    background: var(--primary-400);
+    border-radius: 1px;
+}
+
+
+/* --- Landing Sections --- */
+.landing-section {
+    padding: var(--space-20) var(--space-6);
+}
+
+.landing-section.alt {
+    background: var(--neutral-50);
+}
+
+.landing-section .section-eyebrow {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--primary-600);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    margin-bottom: var(--space-3);
+}
+
+.landing-section .section-heading {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-bold);
+    text-align: center;
+    margin-bottom: var(--space-3);
+    color: var(--text-primary);
+}
+
+.landing-section .section-desc {
+    text-align: center;
+    color: var(--text-secondary);
+    max-width: 600px;
+    margin: 0 auto var(--space-12);
+    font-size: var(--text-md);
+}
+
+/* --- How It Works Steps --- */
+.how-steps {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: var(--space-4);
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.how-step {
+    text-align: center;
+    position: relative;
+}
+
+.how-step:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -16px;
+    top: 28px;
+    color: var(--neutral-300);
+    font-size: 20px;
+}
+
+.how-step .step-num {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-full);
+    background: var(--primary-50);
+    color: var(--primary-600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--space-3);
+    font-weight: var(--weight-bold);
+    font-size: var(--text-lg);
+}
+
+.how-step .step-text {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: var(--leading-snug);
+}
+
+/* --- Stakeholder Cards --- */
+.stakeholder-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-6);
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.stakeholder-card {
+    background: var(--neutral-0);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    padding: var(--space-8) var(--space-6);
+    text-align: center;
+    transition: all var(--transition-base);
+    cursor: pointer;
+}
+
+.stakeholder-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-300);
+}
+
+.stakeholder-card .s-icon {
+    font-size: 40px;
+    margin-bottom: var(--space-4);
+}
+
+.stakeholder-card .s-title {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+}
+
+.stakeholder-card .s-desc {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: var(--leading-relaxed);
+}
+
+/* --- Footer --- */
+.landing-footer {
+    background: var(--neutral-900);
+    color: var(--neutral-400);
+    padding: var(--space-16) var(--space-6) var(--space-8);
+}
+
+.footer-grid {
+    display: grid;
+    grid-template-columns: 2fr repeat(3, 1fr);
+    gap: var(--space-12);
+    max-width: 1200px;
+    margin: 0 auto var(--space-12);
+}
+
+.footer-brand .footer-logo {
+    font-size: var(--text-xl);
+    font-weight: var(--weight-bold);
+    color: var(--neutral-0);
+    margin-bottom: var(--space-3);
+}
+
+.footer-brand .footer-tagline {
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    max-width: 300px;
+}
+
+.footer-col .footer-heading {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--neutral-0);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-4);
+}
+
+.footer-col .footer-link {
+    display: block;
+    font-size: var(--text-sm);
+    color: var(--neutral-400);
+    padding: var(--space-1) 0;
+    transition: color var(--transition-fast);
+}
+
+.footer-col .footer-link:hover {
+    color: var(--neutral-200);
+}
+
+.footer-bottom {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: var(--space-8);
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--text-xs);
+}
+
+
+/* ===== LOGIN PAGE ========================================================== */
+
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8);
+    background: linear-gradient(135deg, var(--neutral-50) 0%, var(--primary-50) 100%);
+}
+
+.login-container {
+    width: 100%;
+    max-width: 520px;
+    animation: slideUp 400ms ease-out;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: var(--space-8);
+}
+
+.login-header .login-logo {
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-bold);
+    color: var(--primary-600);
+    margin-bottom: var(--space-3);
+}
+
+.login-header h2 {
+    font-size: var(--text-2xl);
+    margin-bottom: var(--space-2);
+}
+
+.login-header p {
+    color: var(--text-secondary);
+}
+
+.role-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.role-card {
+    padding: var(--space-6) var(--space-4);
+    text-align: center;
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    background: var(--neutral-0);
+}
+
+.role-card:hover {
+    border-color: var(--primary-300);
+    box-shadow: var(--shadow-md);
+}
+
+.role-card.selected {
+    border-color: var(--primary-500);
+    background: var(--primary-50);
+    box-shadow: var(--shadow-focus);
+}
+
+.role-card .role-icon {
+    font-size: 36px;
+    margin-bottom: var(--space-3);
+}
+
+.role-card .role-title {
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--space-1);
+}
+
+.role-card .role-desc {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+}
+
+.login-form {
+    background: var(--neutral-0);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    padding: var(--space-8);
+    box-shadow: var(--shadow-md);
+}
+
+.login-form .form-group {
+    margin-bottom: var(--space-5);
+}
+
+.login-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin: var(--space-6) 0;
+    color: var(--text-tertiary);
+    font-size: var(--text-sm);
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+}
+
+.login-footer {
+    text-align: center;
+    margin-top: var(--space-6);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+
+/* ===== PURPOSE SELECTION =================================================== */
+
+.purpose-page {
+    padding-top: calc(var(--navbar-height) + var(--space-12));
+    padding-bottom: var(--space-12);
+    text-align: center;
+    min-height: 100vh;
+    background: var(--surface-secondary);
+}
+
+.purpose-page .purpose-heading {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-bold);
+    margin-bottom: var(--space-2);
+}
+
+.purpose-page .purpose-sub {
+    font-size: var(--text-md);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-10);
+}
+
+.purpose-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-6);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+}
+
+
+/* ===== CASE UPLOAD ========================================================= */
+
+.upload-page .upload-container {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.upload-page .document-preview {
+    background: var(--neutral-0);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    margin-top: var(--space-6);
+}
+
+.analysis-progress {
+    max-width: 800px;
+    margin: var(--space-10) auto;
+}
+
+.analysis-step {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-2);
+}
+
+.analysis-step.active {
+    background: var(--primary-50);
+}
+
+.analysis-step.done {
+    background: var(--success-50);
+}
+
+.analysis-step .step-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.analysis-step.pending .step-icon {
+    background: var(--neutral-100);
+    color: var(--text-tertiary);
+}
+
+.analysis-step.active .step-icon {
+    background: var(--primary-100);
+    color: var(--primary-600);
+}
+
+.analysis-step.done .step-icon {
+    background: var(--success-100);
+    color: var(--success-600);
+}
+
+.analysis-step .step-text {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+}
+
+
+/* ===== CASE ANALYSIS DASHBOARD ============================================= */
+
+.case-header {
+    background: var(--neutral-0);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-6);
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.case-header .case-id {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
+}
+
+.case-header .case-court {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.simple-language {
+    background: var(--neutral-0);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    margin-bottom: var(--space-6);
+}
+
+.simple-language .sl-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-5);
+}
+
+
+/* ===== BAIL RECKONER ASSESSMENT ============================================ */
+
+.assessment-page .assessment-main {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.assessment-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-6);
+    margin-top: var(--space-6);
+}
+
+.assessment-card {
+    background: var(--neutral-0);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+}
+
+.assessment-card .ac-title {
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.assessment-card .ac-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2) 0;
+    font-size: var(--text-sm);
+    border-bottom: 1px solid var(--neutral-100);
+}
+
+.assessment-card .ac-row:last-child {
+    border-bottom: none;
+}
+
+.assessment-card .ac-label {
+    color: var(--text-secondary);
+}
+
+.assessment-card .ac-value {
+    font-weight: var(--weight-medium);
+    color: var(--text-primary);
+}
+
+.reasoning-section {
+    background: var(--neutral-0);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    margin-top: var(--space-6);
+    overflow: hidden;
+}
+
+.reasoning-header {
+    padding: var(--space-5) var(--space-6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    background: var(--neutral-50);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.reasoning-body {
+    padding: var(--space-6);
+}
+
+.reasoning-item {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--neutral-100);
+    font-size: var(--text-sm);
+}
+
+.reasoning-item:last-child {
+    border-bottom: none;
+}
+
+
+/* ===== LAWYER PROFILE PAGE ================================================= */
+
+.lawyer-profile-page {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: var(--space-6);
+}
+
+.lawyer-profile-sidebar {
+    position: sticky;
+    top: calc(var(--navbar-height) + var(--space-6));
+}
+
+.lawyer-profile-card {
+    background: var(--neutral-0);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    padding: var(--space-8);
+    text-align: center;
+}
+
+.lawyer-profile-card .lp-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: var(--primary-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--space-4);
+    font-size: 40px;
+    color: var(--primary-600);
+}
+
+.lawyer-profile-card .lp-name {
+    font-size: var(--text-xl);
+    font-weight: var(--weight-bold);
+}
+
+.lawyer-profile-card .lp-title {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin-top: var(--space-1);
+}
+
+
+/* ===== ADMIN PAGE ========================================================== */
+
+.admin-module-tabs {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-6);
+}
+
+.admin-tab {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-light);
+    background: var(--neutral-0);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.admin-tab:hover {
+    border-color: var(--primary-300);
+    color: var(--primary-600);
+}
+
+.admin-tab.active {
+    background: var(--primary-500);
+    color: var(--text-inverse);
+    border-color: var(--primary-500);
+}
+
+
+/* ===== RESPONSIVE PAGE OVERRIDES =========================================== */
+
+@media (max-width: 1024px) {
+    .hero-content {
+        grid-template-columns: 1fr;
+        gap: var(--space-8);
+    }
+
+    .dashboard-preview {
+        transform: none;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    .stakeholder-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .how-steps {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .how-step:nth-child(3)::after { display: none; }
+
+    .footer-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .assessment-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .lawyer-profile-page {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 767px) {
+    .landing-hero {
+        padding: calc(var(--navbar-height) + var(--space-8)) var(--space-4) var(--space-8);
+    }
+
+    .hero-text h1 {
+        font-size: var(--text-3xl);
+    }
+
+    .hero-ctas {
+        flex-direction: column;
+    }
+
+    .hero-ctas .btn {
+        width: 100%;
+    }
+
+    .dashboard-preview {
+        display: none;
+    }
+
+    .stakeholder-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .how-steps {
+        grid-template-columns: 1fr;
+        max-width: 300px;
+    }
+
+    .how-step::after { display: none !important; }
+
+    .role-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .purpose-grid {
+        grid-template-columns: 1fr;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+
+    .footer-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        gap: var(--space-2);
+    }
+
+    .reasoning-item {
+        grid-template-columns: 1fr;
+    }
+}
