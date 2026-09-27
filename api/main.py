@@ -1,6 +1,7 @@
 """
 Bail Reckoner — FastAPI Backend
 Wraps the existing engine.py functions and serves the web frontend.
+Extended with platform authentication and security modules.
 """
 from __future__ import annotations
 
@@ -17,6 +18,15 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
+# Environment — load .env before anything else
+# ---------------------------------------------------------------------------
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+except ImportError:
+    pass  # python-dotenv is optional for basic operation
+
+# ---------------------------------------------------------------------------
 # Path setup — import engine from the project root
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,12 +37,18 @@ DB_PATH = ROOT / "bail_reckoner.db"
 FRONTEND = ROOT / "frontend"
 
 # ---------------------------------------------------------------------------
+# Initialize platform database tables (additive only)
+# ---------------------------------------------------------------------------
+from api.database import init_platform_tables
+init_platform_tables()
+
+# ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
 app = FastAPI(
     title="Bail Reckoner API",
     description="AI-assisted legal intelligence and bail assessment platform",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -42,6 +58,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Mount platform routers (new modules — does NOT affect existing routes)
+# ---------------------------------------------------------------------------
+from api.auth import router as auth_router
+from api.cases import router as cases_router
+from api.documents import router as documents_router
+from api.blockchain import router as blockchain_router
+from api.audit import router as audit_router
+from api.investigations import router as investigations_router
+from api.evidence import router as evidence_router
+from api.forensics import router as forensics_router
+from api.court_proceedings import router as court_proceedings_router
+from api.notifications import router as notifications_router
+
+app.include_router(auth_router)
+app.include_router(cases_router)
+app.include_router(documents_router)
+app.include_router(blockchain_router)
+app.include_router(audit_router)
+app.include_router(investigations_router)
+app.include_router(evidence_router)
+app.include_router(forensics_router)
+app.include_router(court_proceedings_router)
+app.include_router(notifications_router)
 
 # ---------------------------------------------------------------------------
 # Static file mounts — serve the frontend
@@ -55,6 +96,15 @@ for subdir in ("css", "js", "assets"):
 @app.get("/")
 async def serve_index():
     """Serve the SPA entry point."""
+    return FileResponse(FRONTEND / "index.html")
+
+
+@app.get("/favicon.ico")
+async def serve_favicon():
+    """Serve the favicon."""
+    favicon = FRONTEND / "assets" / "favicon.png"
+    if favicon.exists():
+        return FileResponse(favicon, media_type="image/png")
     return FileResponse(FRONTEND / "index.html")
 
 

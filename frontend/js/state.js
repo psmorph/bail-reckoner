@@ -1,15 +1,19 @@
 /**
  * Bail Reckoner — Application State Management
- * Manages current user role, case data, language, and UI state.
+ * Manages current user role, case data, language, UI state,
+ * and platform authentication.
  */
 
 export const state = {
-    role: null,         // 'public' | 'lawyer' | 'police' | 'judge' | 'admin'
+    role: null,         // 'public' | 'lawyer' | 'police' | 'judge' | 'admin' | platform role IDs
     roleName: '',
     currentCase: null,
     language: 'en',
     sidebarOpen: false,
     notifications: [],
+    // Platform auth state
+    authToken: null,
+    user: null,         // Full user profile from JWT login
 };
 
 /** Set the current user role */
@@ -36,6 +40,8 @@ export function clearRole() {
     state.currentCase = null;
     localStorage.removeItem('br_role');
     localStorage.removeItem('br_role_name');
+    // Also clear platform auth
+    clearAuth();
 }
 
 /** Set current case data */
@@ -71,4 +77,57 @@ export function getLanguage() {
 export function toggleSidebar() {
     state.sidebarOpen = !state.sidebarOpen;
     return state.sidebarOpen;
+}
+
+// ===== Platform Authentication State =========================================
+
+/** Store authentication token and user profile from platform login */
+export function setAuth(token, userProfile) {
+    state.authToken = token;
+    state.user = userProfile;
+    localStorage.setItem('br_auth_token', token);
+    localStorage.setItem('br_auth_user', JSON.stringify(userProfile));
+    // Also set the role for backward compatibility with existing pages
+    if (userProfile) {
+        setRole(userProfile.role_id, userProfile.role_name);
+    }
+}
+
+/** Get the current auth token */
+export function getAuthToken() {
+    if (!state.authToken) {
+        state.authToken = localStorage.getItem('br_auth_token');
+    }
+    return state.authToken;
+}
+
+/** Get the current authenticated user profile */
+export function getAuthUser() {
+    if (!state.user) {
+        const stored = localStorage.getItem('br_auth_user');
+        if (stored) {
+            try { state.user = JSON.parse(stored); } catch (e) { /* ignore */ }
+        }
+    }
+    return state.user;
+}
+
+/** Clear platform authentication state */
+export function clearAuth() {
+    state.authToken = null;
+    state.user = null;
+    localStorage.removeItem('br_auth_token');
+    localStorage.removeItem('br_auth_user');
+}
+
+/** Check if the user is authenticated via the platform */
+export function isAuthenticated() {
+    return !!getAuthToken();
+}
+
+/** Check if the current user has a specific permission */
+export function hasPermission(permission) {
+    const user = getAuthUser();
+    if (!user || !user.permissions) return false;
+    return user.permissions.includes(permission);
 }

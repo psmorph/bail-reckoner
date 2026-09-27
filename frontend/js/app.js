@@ -3,7 +3,8 @@
  * SPA router and global event handling.
  */
 
-import { getRole, clearRole, toggleSidebar } from './state.js';
+import { getRole, clearRole, setLanguage, getLanguage, toggleSidebar } from './state.js';
+import { languages, translateDocument } from './i18n.js';
 
 // Page modules
 import * as landing from './pages/landing.js';
@@ -25,6 +26,10 @@ import * as documentManagement from './pages/document-management.js';
 import * as notifications from './pages/notifications.js';
 import * as legalAid from './pages/legal-aid.js';
 import * as admin from './pages/admin.js';
+
+// Platform pages (new)
+import * as caseSearch from './pages/case-search.js';
+import * as caseDetails from './pages/case-details.js';
 
 // ===== Route Table ===========================================================
 
@@ -48,7 +53,15 @@ const routes = {
     '/notifications':     notifications,
     '/legal-aid':         legalAid,
     '/admin':             admin,
+    // Platform routes
+    '/case-search':       caseSearch,
+    '/case-details':      caseDetails,
 };
+
+// Routes that support path parameters (e.g., /case-details/CASE-2026-00001)
+const paramRoutes = [
+    '/case-details',
+];
 
 // ===== Router ================================================================
 
@@ -58,9 +71,20 @@ function getRoute() {
     return hash.split('?')[0];
 }
 
+function resolveRoute(route) {
+    // Exact match first
+    if (routes[route]) return routes[route];
+    // Parameterized route match (e.g., /case-details/CASE-2026-00001)
+    for (const prefix of paramRoutes) {
+        if (route.startsWith(prefix + '/')) return routes[prefix];
+    }
+    return null;
+}
+
 function navigate() {
     const route = getRoute();
-    const page = routes[route];
+    const page = resolveRoute(route);
+    console.log('[Router] route=', route, 'page=', page, 'keys=', Object.keys(routes));
 
     if (!page) {
         // Fallback to landing
@@ -82,6 +106,8 @@ function navigate() {
     // Render
     const app = document.getElementById('app');
     app.innerHTML = page.render();
+    document.documentElement.lang = getLanguage();
+    translateDocument(app);
 
     // Initialize page-specific behavior
     if (page.init) {
@@ -134,12 +160,15 @@ function attachGlobalListeners() {
     });
 
     // Language selector
-    document.getElementById('lang-selector')?.addEventListener('change', (e) => {
-        // Placeholder for language switching
-        const lang = e.target.value;
-        localStorage.setItem('br_lang', lang);
-        // Would trigger re-render with translated content in production
-    });
+    const languageSelector = document.getElementById('lang-selector');
+    if (languageSelector) {
+        languageSelector.innerHTML = languages.map(language => `<option value="${language.value}">${language.label}</option>`).join('');
+        languageSelector.value = getLanguage();
+        languageSelector.addEventListener('change', (e) => {
+            setLanguage(e.target.value);
+            navigate();
+        });
+    }
 
     // Feature card clicks (already handled by data-navigate)
     // Clickable cards

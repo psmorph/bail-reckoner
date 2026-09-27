@@ -2,6 +2,8 @@
  * Bail Reckoner — Reusable UI Component Generators
  * Pure functions that return HTML strings for common UI patterns.
  */
+import { getLanguage } from './state.js';
+import { t } from './i18n.js';
 
 // ===== ICONS (inline SVG for independence from external libraries) ===========
 
@@ -23,6 +25,7 @@ export const icons = {
 
 export function navbar(options = {}) {
     const { transparent = false, showLinks = true, showRole = false, roleName = '' } = options;
+    const language = getLanguage();
     return `
     <nav class="navbar ${transparent ? 'navbar-transparent' : ''}" id="main-navbar">
         <button class="menu-toggle" id="menu-toggle">${icons.menu}</button>
@@ -32,11 +35,11 @@ export function navbar(options = {}) {
         </a>
         ${showLinks ? `
         <div class="nav-links" id="nav-links">
-            <a class="nav-link" data-navigate="/">Home</a>
+            <a class="nav-link" data-navigate="/">${t('Home', language)}</a>
             <a class="nav-link" data-scroll="how-it-works">How It Works</a>
-            <a class="nav-link" data-scroll="features">Features</a>
-            <a class="nav-link" data-navigate="/legal-provisions">Legal Database</a>
-            <a class="nav-link" data-navigate="/case-law-search">Case Law</a>
+            <a class="nav-link" data-scroll="features">${t('Features', language)}</a>
+            <a class="nav-link" data-navigate="/legal-provisions">${t('Legal Database', language)}</a>
+            <a class="nav-link" data-navigate="/case-law-search">${t('Case Law', language)}</a>
         </div>` : ''}
         <div class="nav-actions">
             <select class="lang-selector" id="lang-selector" aria-label="Language">
@@ -46,11 +49,11 @@ export function navbar(options = {}) {
             </select>
             ${showRole ? `
                 <span class="badge badge-primary badge-lg">${roleName}</span>
-                <button class="btn btn-ghost btn-sm" data-navigate="/notifications" title="Notifications">${icons.bell}</button>
-                <button class="btn btn-ghost btn-sm" id="logout-btn" title="Switch Role">${icons.logout}</button>
+                <button class="btn btn-ghost btn-sm" data-navigate="/notifications" title="${t('Notifications', language)}">${icons.bell}</button>
+                <button class="btn btn-ghost btn-sm" id="logout-btn" title="${t('Switch Role', language)}">${icons.logout}</button>
             ` : `
-                <button class="btn btn-secondary btn-sm" data-navigate="/login">Login</button>
-                <button class="btn btn-primary btn-sm" data-navigate="/login">Get Started</button>
+                <button class="btn btn-secondary btn-sm" data-navigate="/login">${t('Login', language)}</button>
+                <button class="btn btn-primary btn-sm" data-navigate="/login">${t('Get Started', language)}</button>
             `}
         </div>
     </nav>`;
