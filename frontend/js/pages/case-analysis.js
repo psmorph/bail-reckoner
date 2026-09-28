@@ -1,22 +1,25 @@
 /**
  * NyaySetu — AI Case Analysis Dashboard
  */
-import { navbar, icons, badge, aiBadge, statCard, accordion, disclaimer, alert, dataTable, caseCard } from '../components.js';
-import { getRole, getCurrentCase } from '../state.js';
-import { sampleCase } from '../data.js';
+import { navbar, icons, badge, aiBadge, statCard, accordion, disclaimer, alert, caseCard } from '../components.js';
+import { getCurrentCase } from '../state.js';
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char]);
+}
 
 export function render() {
-    const role = getRole();
     const roleName = localStorage.getItem('br_role_name') || 'User';
     const caseData = getCurrentCase();
     const input = caseData?.input || {};
     const assessment = caseData?.assessment || {};
     const custodyDays = caseData?.custody_days || 0;
     const similarCases = caseData?.similar_cases || [];
-    const isPublic = role === 'public';
-
-    // Use sample data for display enrichment
-    const sc = sampleCase;
+    const analysisError = caseData?.analysis_error || '';
+    const submittedFacts = input.facts?.trim() || '';
+    const sectionCount = input.sections ? input.sections.split(/[,;]+/).map(value => value.trim()).filter(Boolean).length : 0;
 
     return `
     <div class="layout-app">
@@ -45,60 +48,50 @@ export function render() {
             <!-- Case Header -->
             <div class="case-header" style="margin-top: var(--space-4)">
                 <div>
-                    <div class="case-id">${sc.caseId}</div>
-                    <div class="case-court">${sc.court}</div>
+                    <div class="case-id">NyaySetu case review</div>
+                    <div class="case-court">Court details were not provided</div>
                 </div>
                 <div style="display:flex; gap: var(--space-2); align-items: center; flex-wrap: wrap">
-                    ${badge(sc.stage, 'primary')}
-                    ${badge('Analysis Complete', 'success')}
+                    ${badge('Based on submitted details', 'primary')}
+                    ${badge(analysisError ? 'Review service unavailable' : 'Review complete', analysisError ? 'warning' : 'success')}
                     ${aiBadge()}
                 </div>
             </div>
+
+            ${analysisError ? alert(`Automated review could not be completed: ${escapeHtml(analysisError)}. The information below is what you submitted; no similar judgments or automated review result is available.`, 'warning', 'Review service unavailable') : ''}
 
             <!-- Summary Stats -->
             <div class="grid-cols-5" style="margin-bottom: var(--space-6)">
-                ${statCard({ icon: '📋', value: sc.stage.split('—')[0].trim(), label: 'Case Stage', iconBg: 'var(--primary-50)' })}
-                ${statCard({ icon: '🕐', value: `${custodyDays} days`, label: 'Custody Duration', iconBg: 'var(--warning-50)' })}
-                ${statCard({ icon: '⚖️', value: sc.charges.length.toString(), label: 'Charges Identified', iconBg: 'var(--danger-50)' })}
-                ${statCard({ icon: '📚', value: sc.charges.length.toString(), label: 'Legal Provisions', iconBg: 'var(--info-50)' })}
-                ${statCard({ icon: '✅', value: 'Complete', label: 'Analysis Status', iconBg: 'var(--success-50)' })}
+                ${statCard({ icon: '📋', value: escapeHtml(input.bailType || 'Not entered'), label: 'Bail type entered', iconBg: 'var(--primary-50)' })}
+                ${statCard({ icon: '🕐', value: input.arrestDate ? `${custodyDays} days` : 'Not calculated', label: 'Custody duration', iconBg: 'var(--warning-50)' })}
+                ${statCard({ icon: '⚖️', value: sectionCount.toString(), label: 'Section entries supplied', iconBg: 'var(--danger-50)' })}
+                ${statCard({ icon: '📚', value: similarCases.length.toString(), label: 'Similar judgments found', iconBg: 'var(--info-50)' })}
+                ${statCard({ icon: '✅', value: analysisError ? 'Unavailable' : 'Ready for review', label: 'Review status', iconBg: 'var(--success-50)' })}
             </div>
 
-            <!-- Your Case in Simple Language -->
+            <!-- Submitted information and discussion prompts -->
             <div class="simple-language">
                 <div class="sl-title">
-                    ${icons.bulb} ${isPublic ? 'Your Case in Simple Language' : 'Case Summary in Plain Language'}
-                    ${aiBadge()}
+                    ${icons.bulb} Information to review with your lawyer
                 </div>
-                
                 ${accordion([
-                    { title: `${icons.search} What happened according to the document?`, content: `<p>${sc.simpleSummary.what}</p>` },
-                    { title: `${icons.warning} What are you accused of?`, content: `<p>${sc.simpleSummary.accused}</p>` },
-                    { title: `${icons.doc} Which laws are involved?`, content: `<p>${sc.simpleSummary.laws}</p>` },
-                    { title: `${icons.clock} What could happen next?`, content: `<p>${sc.simpleSummary.next}</p>` },
-                    { title: `${icons.lawyer} What should you discuss with your lawyer?`, content: `<p>${sc.simpleSummary.discuss}</p>` },
+                    { title: `${icons.doc} Facts entered or extracted from your document`, content: `<p style="white-space:pre-wrap; overflow-wrap:anywhere">${escapeHtml(submittedFacts || 'No case facts were provided.')}</p>` },
+                    { title: `${icons.scales} Sections and special laws you entered`, content: `<p>Sections: ${escapeHtml(input.sections || 'Not provided')}</p><p>Special-law sections: ${escapeHtml(input.specialLaws || 'Not provided')}</p><p>These entries have not been independently verified against the current law.</p>` },
+                    { title: `${icons.lawyer} Questions to discuss with a lawyer`, content: '<ul><li>Which current statutory provisions apply to the facts and dates in the official record?</li><li>Are there special-statute requirements or previous court orders to consider?</li><li>Which documents and upcoming court dates should be confirmed?</li></ul>' },
                 ])}
             </div>
 
-            <!-- Charges Identified -->
+            <!-- Case information supplied by the user -->
             <div class="section" style="margin-top: var(--space-6)">
                 <div class="section-header">
-                    <h3 class="section-title">Charges Identified</h3>
-                    ${aiBadge()}
+                    <h3 class="section-title">Details supplied for review</h3>
                 </div>
-                <div class="card" style="padding: 0; overflow: hidden">
-                    ${dataTable({
-                        columns: [
-                            { label: 'Section', render: r => `<strong>§${r.section}</strong>` },
-                            { label: 'Act', key: 'act' },
-                            { label: 'BNS Equivalent', render: r => r.bns ? `§${r.bns}` : '—' },
-                            { label: 'Offence', key: 'offence' },
-                            { label: 'Punishment', key: 'punishment' },
-                            { label: 'Bail Status', render: r => badge(r.bailable, r.bailable === 'Bailable' ? 'success' : 'warning') },
-                            { label: 'Verification', render: r => badge(r.status, r.status === 'Verified' ? 'success' : 'warning') },
-                        ],
-                        rows: sc.charges,
-                    })}
+                <div class="card">
+                    <div class="ac-row"><span class="ac-label">Bail type</span><span class="ac-value">${escapeHtml(input.bailType || 'Not provided')}</span></div>
+                    <div class="ac-row"><span class="ac-label">Arrest date</span><span class="ac-value">${escapeHtml(input.arrestDate || 'Not provided')}</span></div>
+                    <div class="ac-row"><span class="ac-label">Charge sheet filed</span><span class="ac-value">${input.chargeSheet ? 'Confirmed in submitted details' : 'Not confirmed'}</span></div>
+                    <div class="ac-row"><span class="ac-label">First-time offender</span><span class="ac-value">${input.firstTime ? 'Reported in submitted details' : 'Not reported'}</span></div>
+                    <p style="font-size:var(--text-xs); color:var(--text-tertiary); margin-top:var(--space-4)">These details are user-entered or extracted text. NyaySetu has not verified them against official court records.</p>
                 </div>
             </div>
 
@@ -113,13 +106,13 @@ export function render() {
                         assessment.triggers.map(t => `
                             <div style="display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--neutral-100)">
                                 <span style="color: var(--warning-500); font-size: 18px; flex-shrink: 0">⚠</span>
-                                <span style="font-size: var(--text-sm)">${t}</span>
+                                <span style="font-size: var(--text-sm)">${escapeHtml(t)}</span>
                             </div>
                         `).join('') :
                         alert('No automated triggers were recorded. This is not a bail decision. All information requires legal verification.', 'info')
                     }
                     <div style="margin-top: var(--space-4); font-size: var(--text-xs); color: var(--text-tertiary)">
-                        ${assessment.disclaimer || 'Informational retrieval and issue spotting only. Does not predict, approve, or reject bail.'}
+                        ${escapeHtml(assessment.disclaimer || 'Informational retrieval and issue spotting only. Does not predict, approve, or reject bail.')}
                     </div>
                 </div>
             </div>
@@ -130,15 +123,16 @@ export function render() {
                     <h3 class="section-title">Similar Judgments Found</h3>
                     <button class="btn btn-outline btn-sm" data-navigate="/case-law-search">View All ${icons.arrow}</button>
                 </div>
+                <p style="font-size:var(--text-xs); color:var(--text-tertiary); margin-bottom:var(--space-3)">Similarity is a search aid, not a measure of legal relevance or a prediction. Open and verify each judgment from an authoritative source.</p>
                 ${similarCases.length > 0 ? `
                     <div style="display: grid; gap: var(--space-4)">
                         ${similarCases.map(c => caseCard({
-                            title: c.case_title || c.case_name || 'Case',
-                            court: c.court || '',
-                            date: c.date || '',
-                            bailType: c.bail_type || '',
-                            outcome: c.bail_outcome || '',
-                            sections: c.ipc_sections || '',
+                            title: escapeHtml(c.case_title || c.case_name || 'Case'),
+                            court: escapeHtml(c.court || ''),
+                            date: escapeHtml(c.date || ''),
+                            bailType: escapeHtml(c.bail_type || ''),
+                            outcome: escapeHtml(c.bail_outcome || ''),
+                            sections: escapeHtml(c.ipc_sections || ''),
                             similarity: c.similarity,
                         })).join('')}
                     </div>
@@ -181,7 +175,7 @@ export function init() {
             `Bail type: ${caseInput.bailType || 'Not provided'}`,
             `Arrest date: ${caseInput.arrestDate || 'Not provided'}`,
             `Charge sheet filed: ${caseInput.chargeSheet ? 'Yes' : 'Not confirmed'}`,
-            `Custody duration recorded by system: ${current.custody_days ?? 'Not calculated'} days`,
+            `Custody duration recorded by system: ${caseInput.arrestDate ? `${current.custody_days ?? 0} days` : 'Not calculated'}`,
             '',
             'CASE FACTS PROVIDED',
             caseInput.facts || 'No case facts provided.',

@@ -33,6 +33,7 @@ export function render() {
             <div class="upload-page" style="margin-top: var(--space-6)">
                 <div class="upload-container">
                     ${uploadZone('case-file')}
+                    <p style="font-size:var(--text-xs); color:var(--text-tertiary); margin-top:var(--space-3)">The selected PDF is sent to this NyaySetu server for text extraction. It is not added to the app’s case document library. Extracted text is included in your case review and kept in this browser tab’s session. Check and edit the text before continuing. Scanned PDFs are not readable yet.</p>
                     
                     <div class="divider-text" style="margin: var(--space-6) 0">Or enter case details manually</div>
                     
@@ -42,7 +43,7 @@ export function render() {
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">IPC/BNS Sections</label>
-                                <input type="text" class="form-input" id="inp-sections" placeholder="e.g., 302, 34 or 420, 468" value="420, 468, 471">
+                                <input type="text" class="form-input" id="inp-sections" placeholder="e.g., 302, 34 or 420, 468">
                                 <span class="form-hint">Comma-separated section numbers</span>
                             </div>
                             <div class="form-group">
@@ -63,7 +64,7 @@ export function render() {
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Arrest Date</label>
-                                <input type="date" class="form-input" id="inp-arrest" value="2025-03-14">
+                                <input type="date" class="form-input" id="inp-arrest">
                             </div>
                         </div>
                         <div class="form-row" style="margin-top: var(--space-4)">
@@ -74,7 +75,7 @@ export function render() {
                             </div>
                             <div class="form-group">
                                 <label class="form-checkbox-group">
-                                    <input type="checkbox" class="form-checkbox" id="inp-firsttime" checked> First-time offender
+                                    <input type="checkbox" class="form-checkbox" id="inp-firsttime"> First-time offender (if confirmed)
                                 </label>
                             </div>
                         </div>
@@ -94,7 +95,7 @@ export function render() {
                         </div>
                         <div class="form-group" style="margin-top: var(--space-4)">
                             <label class="form-label">Case Facts and Legal Issues</label>
-                            <textarea class="form-textarea" id="inp-facts" rows="4" placeholder="Describe the case facts, legal issues, and any relevant context...">Accused is charged with cheating and forgery. The complainant alleges financial fraud through forged documents. The accused is a first-time offender with no prior criminal record and has been in custody since March 2025.</textarea>
+                            <textarea class="form-textarea" id="inp-facts" rows="6" placeholder="Enter relevant facts, or upload a text-based PDF above to extract its text. Review and remove anything you do not want to submit."></textarea>
                         </div>
                         <button class="btn btn-primary btn-lg w-full" style="margin-top: var(--space-6)" id="analyze-btn">
                             ${icons.search} Start Analysis
@@ -122,12 +123,11 @@ export function render() {
 }
 
 const analysisSteps = [
-    'Reading case information',
-    'Extracting details and charges',
-    'Identifying legal provisions',
-    'Mapping applicable statutes',
-    'Checking bail-related provisions',
-    'Preparing case summary',
+    'Reading the information you submitted',
+    'Calculating custody duration when an arrest date is provided',
+    'Checking rule-based review triggers',
+    'Searching the available judgment collection',
+    'Preparing results for human review',
 ];
 
 export function init() {
@@ -156,15 +156,36 @@ export function init() {
     document.getElementById('analyze-btn')?.addEventListener('click', runAnalysis);
 }
 
-function handleFile(file) {
+async function handleFile(file) {
     const zone = document.getElementById('case-file-zone');
-    zone.innerHTML = `
-        <div style="font-size: 36px">📄</div>
-        <div class="upload-title">${file.name}</div>
-        <div class="upload-hint">${(file.size / 1024).toFixed(1)} KB • ${file.type || 'Document'}</div>
-        <div style="margin-top: var(--space-3)">${badge('File Ready', 'success')}</div>
-    `;
-    showToast('Document uploaded successfully. Fill in additional details below.', 'success');
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+        showToast('Please choose a PDF. Other formats are not processed in this prototype.', 'warning');
+        return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+        showToast('PDF is larger than the 10 MB demo limit.', 'warning');
+        return;
+    }
+    zone.querySelector('.upload-icon').textContent = '⏳';
+    zone.querySelector('.upload-title').textContent = file.name;
+    zone.querySelector('.upload-hint').textContent = 'Extracting selectable text…';
+    zone.querySelector('.upload-formats').innerHTML = badge('Reading PDF', 'info');
+    try {
+        const result = await api.extractCaseText(file);
+        const factsField = document.getElementById('inp-facts');
+        factsField.value = result.text;
+        const detail = result.truncated ? `First 30,000 characters extracted from ${result.pages_read} pages; the text was shortened.` : `Text extracted from ${result.pages_read} page${result.pages_read === 1 ? '' : 's'}.`;
+        zone.querySelector('.upload-hint').textContent = `${(file.size / 1024).toFixed(1)} KB · ${detail}`;
+        zone.querySelector('.upload-icon').textContent = '✓';
+        zone.querySelector('.upload-formats').innerHTML = badge('Text ready', 'success');
+        factsField.focus();
+        showToast(`${detail} Review it before analysis.`, result.truncated ? 'warning' : 'success');
+    } catch (error) {
+        zone.querySelector('.upload-hint').textContent = 'Text could not be extracted. You can still enter facts manually below.';
+        zone.querySelector('.upload-icon').textContent = '⚠️';
+        zone.querySelector('.upload-formats').innerHTML = badge('Try another PDF', 'warning');
+        showToast(error.message, 'warning');
+    }
 }
 
 async function runAnalysis() {
@@ -173,7 +194,7 @@ async function runAnalysis() {
     const bailType = document.getElementById('inp-bail-type')?.value || 'Regular';
     const arrestDate = document.getElementById('inp-arrest')?.value || '';
     const chargeSheet = document.getElementById('inp-chargesheet')?.checked || false;
-    const firstTime = document.getElementById('inp-firsttime')?.checked || true;
+    const firstTime = Boolean(document.getElementById('inp-firsttime')?.checked);
     const flight = document.getElementById('inp-flight')?.checked || false;
     const witness = document.getElementById('inp-witness')?.checked || false;
     const evidence = document.getElementById('inp-evidence')?.checked || false;
@@ -245,6 +266,7 @@ async function runAnalysis() {
             assessment: { status: 'Review required', triggers: ['Unable to complete full analysis. Please verify input data.'], disclaimer: 'Informational only.' },
             similar_cases: [],
             input: { sections, specialLaws, bailType, arrestDate, chargeSheet, firstTime, flight, witness, evidence, facts },
+            analysis_error: err.message,
         });
         await delay(500);
         window.location.hash = '#/case-analysis';

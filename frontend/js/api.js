@@ -67,6 +67,21 @@ export async function reviewCase(data) {
     return request('POST', '/api/case/review', data);
 }
 
+/** Extract selectable PDF text for the case review flow (the API does not store the file). */
+export async function extractCaseText(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const headers = {};
+    const token = getAuthToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE}/api/case/extract-text`, { method: 'POST', headers, body: formData });
+    if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(error.detail || `Document extraction failed (${res.status})`);
+    }
+    return res.json();
+}
+
 // ===== Judgment Search ========================================================
 
 export async function searchJudgments(query, filters = {}) {

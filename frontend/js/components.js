@@ -123,8 +123,8 @@ export function aiBadge() {
         <span class="ai-icon">${icons.ai}</span>
         AI-Assisted
         <span class="ai-tooltip">
-            AI assists with document extraction, summarization and information retrieval. 
-            Legal conclusions should be verified against applicable law and official records. 
+            Automated tools extract selectable PDF text, search reference judgments and surface rule-based review prompts.
+            They do not verify facts or make legal conclusions. Check results against current law and official records.
             This is not legal advice.
         </span>
     </span>`;
@@ -200,12 +200,12 @@ export function uploadZone(id = 'file-upload') {
     return `
     <div class="upload-zone" id="${id}-zone">
         <div class="upload-icon">${icons.upload}</div>
-        <div class="upload-title">Upload FIR / Charge Sheet / Court Order</div>
-        <div class="upload-hint">Drag and drop your document here, or click to browse</div>
+        <div class="upload-title">Extract text from a PDF</div>
+        <div class="upload-hint">Text-based PDFs only · 10 MB maximum · scanned PDFs need OCR</div>
         <div class="upload-formats">
-            ${badge('PDF', 'neutral')} ${badge('JPG', 'neutral')} ${badge('PNG', 'neutral')}
+            ${badge('PDF', 'neutral')} ${badge('Not added to case library', 'info')}
         </div>
-        <input type="file" id="${id}" accept=".pdf,.jpg,.jpeg,.png" style="display:none">
+        <input type="file" id="${id}" accept=".pdf,application/pdf" style="display:none">
     </div>`;
 }
 

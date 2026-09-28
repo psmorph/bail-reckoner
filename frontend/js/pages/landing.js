@@ -75,23 +75,23 @@ export function render() {
             <div class="how-steps">
                 <div class="how-step">
                     <div class="step-num">1</div>
-                    <div class="step-text"><strong>Upload Documents</strong><br>FIR, charge sheet, court order</div>
+                    <div class="step-text"><strong>Upload a Text PDF</strong><br>Or enter case details manually</div>
                 </div>
                 <div class="how-step">
                     <div class="step-num">2</div>
-                    <div class="step-text"><strong>AI Extracts Info</strong><br>Case details, charges, dates</div>
+                    <div class="step-text"><strong>Review Extracted Text</strong><br>Check and edit before analysis</div>
                 </div>
                 <div class="how-step">
                     <div class="step-num">3</div>
-                    <div class="step-text"><strong>Maps Provisions</strong><br>Applicable legal sections</div>
+                    <div class="step-text"><strong>Review Triggers</strong><br>See issues for legal review</div>
                 </div>
                 <div class="how-step">
                     <div class="step-num">4</div>
-                    <div class="step-text"><strong>Bail Assessment</strong><br>Rule-based eligibility review</div>
+                    <div class="step-text"><strong>Search Judgments</strong><br>Explore similar reference cases</div>
                 </div>
                 <div class="how-step">
                     <div class="step-num">5</div>
-                    <div class="step-text"><strong>Explainable Results</strong><br>Transparent reasoning & sources</div>
+                    <div class="step-text"><strong>Check the Sources</strong><br>Confirm details with official records</div>
                 </div>
                 <div class="how-step">
                     <div class="step-num">6</div>
@@ -106,7 +106,7 @@ export function render() {
             <h2 class="section-heading">Comprehensive Legal Intelligence</h2>
             <p class="section-desc">Everything you need to understand, analyze, and navigate the bail process.</p>
             <div class="grid-cols-3" style="max-width: 1000px; margin: 0 auto">
-                ${featureCard({ icon: '📄', iconBg: 'var(--primary-50)', title: 'Document Analysis', description: 'Upload and analyze FIRs, charge sheets, and court orders with AI-powered extraction.', route: '/case-upload' })}
+                ${featureCard({ icon: '📄', iconBg: 'var(--primary-50)', title: 'PDF Text Extraction', description: 'Extract selectable text from a PDF, review it, then use it as case facts for your search.', route: '/case-upload' })}
                 ${featureCard({ icon: '⚖️', iconBg: 'var(--success-50)', title: 'Bail Assessment', description: 'Rule-based eligibility screening against applicable statutory provisions.', route: '/bail-reckoner' })}
                 ${featureCard({ icon: '📚', iconBg: 'var(--info-50)', title: 'Legal Database', description: 'Searchable database of IPC/BNS offences, punishments, and bail classifications.', route: '/legal-provisions' })}
                 ${featureCard({ icon: '🔍', iconBg: 'var(--warning-50)', title: 'Case Law Search', description: 'Find relevant judgments and precedents with AI-powered semantic search.', route: '/case-law-search' })}
@@ -131,7 +131,7 @@ export function render() {
                     <div style="text-align: center">
                         <div style="font-size: 28px; margin-bottom: var(--space-2)">${icons.ai}</div>
                         <div style="font-weight: 600; margin-bottom: 4px">AI Transparency</div>
-                        <div style="font-size: var(--text-sm); color: var(--text-secondary); max-width: 180px">Every AI result is clearly labeled with source and confidence</div>
+                        <div style="font-size: var(--text-sm); color: var(--text-secondary); max-width: 180px">Automated results are surfaced for human review, not treated as legal conclusions</div>
                     </div>
                     <div style="text-align: center">
                         <div style="font-size: 28px; margin-bottom: var(--space-2)">${icons.lock}</div>

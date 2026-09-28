@@ -7,15 +7,17 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+from io import BytesIO
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from pypdf import PdfReader
 
 # ---------------------------------------------------------------------------
 # Environment — load .env before anything else
@@ -132,6 +134,71 @@ class CustodyCalcRequest(BaseModel):
 # ===== API Routes ===========================================================
 
 # ---- Case Review (main workflow) ------------------------------------------
+
+@app.post("/api/case/extract-text")
+async def extract_case_document(file: UploadFile = File(...)):
+    """Extract selectable text from a PDF without adding it to the app's case library."""
+    filename = (file.filename or "").lower()
+    if not filename.endswith(".pdf"):
+        raise HTTPException(status_code=415, detail="Please upload a PDF. Other document types are not read by this prototype.")
+
+    max_bytes = 10 * 1024 * 1024
+    data = await file.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise HTTPException(status_code=413, detail="PDF is larger than the 10 MB demo limit.")
+    if b"%PDF" not in data[:1024]:
+        raise HTTPException(status_code=400, detail="This file does not appear to be a valid PDF.")
+
+    try:
+        reader = PdfReader(BytesIO(data), strict=False)
+        if reader.is_encrypted:
+            try:
+                if not reader.decrypt(""):
+                    raise HTTPException(status_code=422, detail="Password-protected PDFs are not supported.")
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(status_code=422, detail="Password-protected PDFs are not supported.")
+
+        page_limit = 80
+        char_limit = 30_000
+        parts = []
+        char_count = 0
+        pages_read = 0
+        truncated = len(reader.pages) > page_limit
+        for page_number, page in enumerate(reader.pages[:page_limit], start=1):
+            page_text = (page.extract_text() or "").replace("\x00", "").strip()
+            if page_text:
+                prefix = f"[Page {page_number}]\n"
+                remaining = char_limit - char_count
+                if remaining <= len(prefix):
+                    truncated = True
+                    break
+                excerpt = prefix + page_text[:remaining - len(prefix)]
+                parts.append(excerpt)
+                char_count += len(excerpt)
+                if len(page_text) + len(prefix) > remaining:
+                    truncated = True
+                    break
+            pages_read = page_number
+        extracted_text = "\n\n".join(parts).strip()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Could not read this PDF. Try a text-based PDF or enter the case details manually.") from exc
+    finally:
+        await file.close()
+
+    if not extracted_text:
+        raise HTTPException(status_code=422, detail="No selectable text was found. Scanned/image-only PDFs need OCR; enter the case details manually for now.")
+
+    return {
+        "text": extracted_text,
+        "pages_read": pages_read,
+        "truncated": truncated,
+        "saved_to_case_library": False,
+        "message": "Text extracted. The PDF was not added to the app's case document library.",
+    }
 
 @app.post("/api/case/review")
 async def review_case(req: CaseReviewRequest):

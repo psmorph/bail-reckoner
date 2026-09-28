@@ -157,6 +157,7 @@ python test_platform.py
 - `GET  /api/audit/security` — Security events
 
 ### Legal Intelligence (Original)
+- `POST /api/case/extract-text` — Extract selectable PDF text for review (10 MB, 80-page, and 30,000-character caps; not added to the case document library)
 - `POST /api/case/review` — Assessment + similar judgments
 - `GET  /api/cases/search` — Judgment search with filters
 - `POST /api/custody/calculate` — Custody duration calculator
@@ -193,4 +194,6 @@ The source summaries are not authoritative law, section mappings need verificati
 
 - The bail review page includes a case-specific readiness checklist. Completion state is stored in the current browser and can be copied for discussion with counsel.
 - The case analysis page can export a plain-text review brief with submitted facts, system review triggers, and returned similar judgments.
+- The case upload page extracts selectable text from PDFs (up to 10 MB and 80 pages), marks page boundaries, and inserts the text for user review. The PDF is not added to the app's document library; scanned-image PDFs require OCR and are not supported yet.
+- Case analysis now displays the user's submitted details and extracted text rather than an unrelated fictional sample case.
 - These features support preparation and communication only. The checklist is a general prompt, and the exported brief is not legal advice or a bail decision.
