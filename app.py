@@ -4,9 +4,9 @@ from pathlib import Path
 import streamlit as st
 from engine import custody_days, database_stats, rule_assessment, search_cases
 
-st.set_page_config(page_title="Bail Reckoner", layout="wide")
+st.set_page_config(page_title="NyaySetu", layout="wide")
 ROOT = Path(__file__).parent
-st.title("Bail Reckoner")
+st.title("NyaySetu")
 st.caption("Explainable legal-information retrieval and issue spotting")
 st.warning("This system does not predict, approve, reject, or guarantee bail. It is not legal advice. Verify every provision and judgment with current authoritative sources and a qualified legal professional.")
 

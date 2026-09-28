@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Login Page
+ * NyaySetu — Login Page
  * Supports both platform authentication (JWT) and legacy role selection.
  */
 import { icons } from '../components.js';
@@ -30,7 +30,7 @@ export function render() {
     <div class="login-page">
         <div class="login-container">
             <div class="login-header">
-                <div class="login-logo">${icons.scales} BAIL RECKONER</div>
+                <div class="login-logo">${icons.scales} NYAYSETU</div>
                 <h2>Secure Legal Intelligence Platform</h2>
                 <p>Sign in with your platform credentials.</p>
             </div>

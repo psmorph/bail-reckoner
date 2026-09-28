@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Reusable UI Component Generators
+ * NyaySetu — Reusable UI Component Generators
  * Pure functions that return HTML strings for common UI patterns.
  */
 import { getLanguage } from './state.js';
@@ -31,7 +31,7 @@ export function navbar(options = {}) {
         <button class="menu-toggle" id="menu-toggle">${icons.menu}</button>
         <a class="logo" data-navigate="/">
             <span class="logo-icon">${icons.scales}</span>
-            <span class="logo-text">BAIL RECKONER</span>
+            <span class="logo-text">NYAYSETU</span>
         </a>
         ${showLinks ? `
         <div class="nav-links" id="nav-links">

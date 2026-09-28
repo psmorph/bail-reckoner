@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — API Client
+ * NyaySetu — API Client
  * Communicates with the FastAPI backend.
  * Extended with platform authentication support.
  */

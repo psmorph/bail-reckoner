@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Legal Aid Assistance Page
+ * NyaySetu — Legal Aid Assistance Page
  */
 import { navbar, icons, badge, disclaimer, alert } from '../components.js';
 import { getRole } from '../state.js';

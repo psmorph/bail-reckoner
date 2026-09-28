@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Case Timeline Page
+ * NyaySetu — Case Timeline Page
  * Connects to real /api/cases/{id}/timeline endpoint.
  * Reads case ID from URL hash or from current case in session.
  */

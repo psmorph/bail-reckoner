@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Case Management Router
+NyaySetu Platform — Case Management Router
 Full CRUD for cases with RBAC enforcement and audit logging.
 """
 from __future__ import annotations

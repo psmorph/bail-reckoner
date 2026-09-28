@@ -1,4 +1,4 @@
-"""End-to-end test for the Bail Reckoner Platform API."""
+"""End-to-end test for the NyaySetu Platform API."""
 import requests, json, os, tempfile
 
 BASE = 'http://127.0.0.1:8000'

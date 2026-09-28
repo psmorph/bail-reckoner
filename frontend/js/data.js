@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Sample Data
+ * NyaySetu — Sample Data
  * Realistic but clearly fictional data for the UI prototype.
  * All names, case numbers, and legal details are entirely fictional.
  */

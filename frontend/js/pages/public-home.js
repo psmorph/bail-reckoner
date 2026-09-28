@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Public / Common User Home
+ * NyaySetu — Public / Common User Home
  */
 import { navbar, icons, featureCard, disclaimer } from '../components.js';
 

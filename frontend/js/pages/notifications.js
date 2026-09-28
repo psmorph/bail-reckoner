@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Notifications Page
+ * NyaySetu — Notifications Page
  * Connects to the real /api/notifications endpoints.
  */
 import { navbar, icons, badge, showToast } from '../components.js';

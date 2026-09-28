@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Lawyer Dashboard
+ * NyaySetu — Lawyer Dashboard
  */
 import { navbar, sidebar, icons, statCard, badge, dataTable } from '../components.js';
 import { lawyerSidebarItems } from '../data.js';

@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner Platform — Case Search & List Page
+ * NyaySetu Platform — Case Search & List Page
  * Search, filter, and create cases.
  */
 import { navbar, icons, badge, statCard, showToast } from '../components.js';

@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Audit Logging Service
+NyaySetu Platform — Audit Logging Service
 Append-only audit trail for all security-sensitive actions.
 """
 from __future__ import annotations

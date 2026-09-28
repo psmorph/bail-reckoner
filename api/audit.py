@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Audit Log Router
+NyaySetu Platform — Audit Log Router
 Query and filter the append-only audit trail.
 """
 from __future__ import annotations

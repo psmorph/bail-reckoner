@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Landing Page
+ * NyaySetu — Landing Page
  */
 import { navbar, icons, featureCard, disclaimer } from '../components.js';
 
@@ -112,6 +112,8 @@ export function render() {
                 ${featureCard({ icon: '🔍', iconBg: 'var(--warning-50)', title: 'Case Law Search', description: 'Find relevant judgments and precedents with AI-powered semantic search.', route: '/case-law-search' })}
                 ${featureCard({ icon: '👨‍⚖️', iconBg: 'var(--primary-50)', title: 'Lawyer Matching', description: 'Connect with relevant lawyers based on jurisdiction, expertise, and case type.', route: '/lawyer-discovery' })}
                 ${featureCard({ icon: '🕐', iconBg: 'var(--neutral-100)', title: 'Case Timeline', description: 'Visual chronological view of all case events, dates, and custody duration.', route: '/case-timeline' })}
+                ${featureCard({ icon: '✅', iconBg: 'var(--success-50)', title: 'Bail Readiness Checklist', description: 'Track preparation items for a bail application and keep progress saved for the current case.', route: '/bail-reckoner' })}
+                ${featureCard({ icon: '📤', iconBg: 'var(--info-50)', title: 'Shareable Case Brief', description: 'Download a plain-text case summary with review triggers and similar judgments to discuss with a lawyer.', route: '/case-upload' })}
             </div>
         </section>
 
@@ -121,7 +123,7 @@ export function render() {
                 <div class="section-eyebrow">Trust & Transparency</div>
                 <h2 class="section-heading">A Decision-Support Tool, Not a Decision-Maker</h2>
                 <p class="section-desc" style="margin-bottom: var(--space-6)">
-                    Bail Reckoner is designed as an information-retrieval and analysis platform. 
+                    NyaySetu is designed as an information-retrieval and analysis platform.
                     It does not predict outcomes, guarantee bail, or replace the judgment of legal professionals and courts.
                 </p>
                 ${disclaimer()}
@@ -159,7 +161,7 @@ export function render() {
         <footer class="landing-footer">
             <div class="footer-grid">
                 <div class="footer-brand">
-                    <div class="footer-logo">${icons.scales} BAIL RECKONER</div>
+                    <div class="footer-logo">${icons.scales} NYAYSETU</div>
                     <p class="footer-tagline">Understand your case. Know your rights. Navigate the bail process.</p>
                     <p class="footer-tagline" style="margin-top: var(--space-4); font-size: 11px; opacity: 0.6">
                         This platform provides AI-assisted legal information retrieval. It does not constitute legal advice. 
@@ -191,7 +193,7 @@ export function render() {
                 </div>
             </div>
             <div class="footer-bottom">
-                <span>© 2025 Bail Reckoner. An AI-assisted legal intelligence initiative.</span>
+                <span>© 2025 NyaySetu. An AI-assisted legal intelligence initiative.</span>
                 <span>Not legal advice • Verify all information • ${icons.lock} Secure platform</span>
             </div>
         </footer>

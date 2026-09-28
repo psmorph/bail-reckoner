@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Lawyer Profile Page
+ * NyaySetu — Lawyer Profile Page
  */
 import { navbar, icons, badge } from '../components.js';
 import { getRole } from '../state.js';

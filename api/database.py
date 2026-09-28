@@ -1,7 +1,7 @@
 """
-Bail Reckoner Platform — Database Connection & Schema Management
+NyaySetu Platform — Database Connection & Schema Management
 Manages SQLite connections and creates additive platform tables
-without touching the original 5 Bail Reckoner tables.
+without touching the original 5 NyaySetu tables.
 """
 from __future__ import annotations
 

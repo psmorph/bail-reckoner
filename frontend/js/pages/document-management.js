@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Document Management Page
+ * NyaySetu — Document Management Page
  * Connects to the real /api/documents endpoints with upload, verify, download.
  */
 import { navbar, icons, badge, showToast } from '../components.js';

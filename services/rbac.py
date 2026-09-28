@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — RBAC Service
+NyaySetu Platform — RBAC Service
 Role-Based Access Control with hierarchical permissions.
 """
 from __future__ import annotations
@@ -56,7 +56,7 @@ class Permission(str, Enum):
     COURT_READ = "court:read"
     COURT_UPDATE = "court:update"
 
-    # Bail Reckoner
+    # NyaySetu
     BAIL_ANALYZE = "bail:analyze"
     BAIL_READ = "bail:read"
 

@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Seed Data
+NyaySetu Platform — Seed Data
 Creates demo users, roles, organizations, and a sample case for testing.
 Run once after database initialization:  python seed_data.py
 """
@@ -152,7 +152,7 @@ def seed_sample_case():
 
 def run_seed():
     """Run all seed operations."""
-    print("\n=== Bail Reckoner Platform — Seeding Database ===\n")
+    print("\n=== NyaySetu Platform — Seeding Database ===\n")
     init_platform_tables()
     seed_roles()
     seed_organizations()

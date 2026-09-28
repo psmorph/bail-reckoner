@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Case Upload & Analysis Page
+ * NyaySetu — Case Upload & Analysis Page
  */
 import { navbar, icons, uploadZone, stepProgress, alert, badge, disclaimer, aiBadge, showToast } from '../components.js';
 import { getRole, setCurrentCase } from '../state.js';

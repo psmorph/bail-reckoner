@@ -1,10 +1,80 @@
 /**
- * Bail Reckoner — Bail Assessment Page
+ * NyaySetu — Bail Assessment Page
  */
 import { navbar, icons, badge, aiBadge, disclaimer, accordion, alert } from '../components.js';
 import { getRole, getCurrentCase } from '../state.js';
-import { sampleCase } from '../data.js';
 import * as api from '../api.js';
+
+function checklistStorageKey() {
+    const caseData = getCurrentCase() || {};
+    const input = caseData.input || {};
+    const caseId = caseData.case_id || caseData.caseId || caseData.id;
+    const fingerprint = caseId || [input.sections, input.specialLaws, input.arrestDate, input.bailType].filter(Boolean).join('-') || 'current';
+    return `nyaysetu_checklist_${fingerprint}`;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char]);
+}
+
+function renderReadinessChecklist(items, container) {
+    const key = checklistStorageKey();
+    let checked = {};
+    try { checked = JSON.parse(localStorage.getItem(key) || '{}'); } catch (_) { /* start fresh if storage is invalid */ }
+    const safeItems = items.map((item, index) => ({ ...item, checklistIndex: index }));
+    const completed = safeItems.filter(item => checked[item.checklistIndex]).length;
+    const progress = safeItems.length ? Math.round(completed / safeItems.length * 100) : 0;
+
+    container.innerHTML = `
+        <p style="color: var(--text-secondary); font-size: var(--text-sm); margin-bottom: var(--space-4)">Track what you have gathered. Your progress is saved in this browser for this case.</p>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:var(--space-3); margin-bottom:var(--space-2)">
+            <span id="readiness-count" style="font-size:var(--text-sm); font-weight:600">${completed} of ${safeItems.length} complete</span>
+            <button type="button" class="btn btn-outline btn-sm" id="copy-readiness-checklist">Copy checklist</button>
+        </div>
+        <div role="progressbar" aria-label="Checklist progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}" style="height:8px; background:var(--neutral-100); border-radius:999px; overflow:hidden; margin-bottom:var(--space-3)">
+            <div id="readiness-progress" style="width:${progress}%; height:100%; background:var(--success-500); transition:width .2s"></div>
+        </div>
+        ${safeItems.map(item => `
+            <label style="display:flex; align-items:flex-start; gap:var(--space-3); padding:var(--space-3) 0; border-bottom:1px solid var(--neutral-100); cursor:pointer">
+                <input type="checkbox" data-checklist-index="${item.checklistIndex}" ${checked[item.checklistIndex] ? 'checked' : ''} style="margin-top:3px; accent-color:var(--primary-600)">
+                <span style="font-size:var(--text-sm)">${escapeHtml(item.requirement)} ${item.is_mandatory ? '<span class="badge badge-danger" style="margin-left:var(--space-2)">Listed as mandatory</span>' : ''}</span>
+            </label>`).join('')}
+        <p style="font-size:var(--text-xs); color:var(--text-tertiary); margin-top:var(--space-3)">Checklist items are general prompts from the local reference dataset. Confirm requirements for your court, case, and current law with a lawyer.</p>`;
+
+    const checkboxes = [...container.querySelectorAll('[data-checklist-index]')];
+    const updateProgress = () => {
+        const state = Object.fromEntries(checkboxes.map(box => [box.dataset.checklistIndex, box.checked]));
+        localStorage.setItem(key, JSON.stringify(state));
+        const done = checkboxes.filter(box => box.checked).length;
+        const percent = checkboxes.length ? Math.round(done / checkboxes.length * 100) : 0;
+        container.querySelector('#readiness-count').textContent = `${done} of ${checkboxes.length} complete`;
+        container.querySelector('#readiness-progress').style.width = `${percent}%`;
+        container.querySelector('[role="progressbar"]').setAttribute('aria-valuenow', percent);
+    };
+    checkboxes.forEach(box => box.addEventListener('change', updateProgress));
+    container.querySelector('#copy-readiness-checklist').addEventListener('click', async event => {
+        const button = event.currentTarget;
+        const text = [
+            'NyaySetu — Bail application preparation checklist',
+            ...checkboxes.map(box => `${box.checked ? '[x]' : '[ ]'} ${box.parentElement.querySelector('span').textContent.trim()}`),
+            '', 'General information only. Confirm requirements with a qualified lawyer.'
+        ].join('\n');
+        try {
+            await navigator.clipboard.writeText(text);
+            button.textContent = 'Copied';
+            setTimeout(() => { button.textContent = 'Copy checklist'; }, 1800);
+        } catch (_) {
+            const field = document.createElement('textarea');
+            field.value = text;
+            field.style.position = 'fixed'; field.style.opacity = '0';
+            document.body.appendChild(field); field.select();
+            document.execCommand('copy'); field.remove();
+            button.textContent = 'Copied';
+        }
+    });
+}
 
 export function render() {
     const role = getRole();
@@ -13,8 +83,6 @@ export function render() {
     const assessment = caseData?.assessment || {};
     const custodyDays = caseData?.custody_days || 0;
     const input = caseData?.input || {};
-    const sc = sampleCase;
-
     const hasTriggers = assessment.triggers && assessment.triggers.length > 0;
 
     return `
@@ -30,7 +98,7 @@ export function render() {
                         <span class="breadcrumb-sep">›</span>
                         <span>Bail Assessment</span>
                     </div>
-                    <h1 class="page-title">Bail Reckoner Assessment</h1>
+                    <h1 class="page-title">NyaySetu Bail Review</h1>
                 </div>
                 <div class="page-actions">
                     <button class="btn btn-outline btn-sm" data-navigate="/case-analysis">${icons.arrow} Back to Analysis</button>
@@ -47,8 +115,8 @@ export function render() {
                     <div class="assessment-status status-review" style="margin-bottom: var(--space-6)">
                         <div class="status-icon">⚠️</div>
                         <div>
-                            <div class="status-title">Potentially Eligible — Legal Review Required</div>
-                            <div class="status-subtitle">Based on the currently available case information and applicable statutory parameters.</div>
+                            <div class="status-title">Review required — no outcome predicted</div>
+                            <div class="status-subtitle">NyaySetu surfaces information for human review; it does not determine bail eligibility.</div>
                         </div>
                         ${aiBadge()}
                     </div>
@@ -65,28 +133,27 @@ export function render() {
                         <!-- Offence Classification -->
                         <div class="assessment-card">
                             <div class="ac-title">${icons.scales} Offence Classification</div>
-                            <div class="ac-row"><span class="ac-label">Bailable / Non-Bailable</span><span class="ac-value">${badge('Non-Bailable', 'warning')}</span></div>
-                            <div class="ac-row"><span class="ac-label">Cognizable</span><span class="ac-value">${badge('Cognizable', 'info')}</span></div>
-                            <div class="ac-row"><span class="ac-label">Compoundable</span><span class="ac-value">${badge('Non-Compoundable', 'neutral')}</span></div>
-                            <div class="ac-row"><span class="ac-label">Category</span><span class="ac-value">Economic / Property</span></div>
+                            <div class="ac-row"><span class="ac-label">Bailable / Non-Bailable</span><span class="ac-value">${badge('Verify applicable provision', 'warning')}</span></div>
+                            <div class="ac-row"><span class="ac-label">Cognizable</span><span class="ac-value">${badge('Not verified', 'neutral')}</span></div>
+                            <div class="ac-row"><span class="ac-label">Compoundable</span><span class="ac-value">${badge('Not verified', 'neutral')}</span></div>
+                            <div class="ac-row"><span class="ac-label">Category</span><span class="ac-value">Confirm against the current Act</span></div>
                         </div>
 
                         <!-- Custody Analysis -->
                         <div class="assessment-card">
                             <div class="ac-title">${icons.clock} Custody Analysis</div>
-                            <div class="ac-row"><span class="ac-label">Date of Arrest</span><span class="ac-value">${input.arrestDate || sc.arrestDate}</span></div>
-                            <div class="ac-row"><span class="ac-label">Current Custody</span><span class="ac-value"><strong>${custodyDays} days</strong></span></div>
-                            <div class="ac-row"><span class="ac-label">Relevant Threshold</span><span class="ac-value">½ of max sentence</span></div>
-                            <div class="ac-row"><span class="ac-label">Threshold Status</span><span class="ac-value">${badge(custodyDays > 365 ? 'Threshold Approaching' : 'Below Threshold', custodyDays > 365 ? 'warning' : 'info')}</span></div>
+                            <div class="ac-row"><span class="ac-label">Date of Arrest</span><span class="ac-value">${input.arrestDate || 'Not provided'}</span></div>
+                            <div class="ac-row"><span class="ac-label">Current Custody</span><span class="ac-value"><strong>${input.arrestDate ? `${custodyDays} days` : 'Not calculated'}</strong></span></div>
+                            <div class="ac-row"><span class="ac-label">Relevant Threshold</span><span class="ac-value">Depends on the applicable statute and case facts</span></div>
+                            <div class="ac-row"><span class="ac-label">Threshold Status</span><span class="ac-value">${badge('Requires legal verification', 'warning')}</span></div>
                         </div>
 
                         <!-- Punishment Information -->
                         <div class="assessment-card">
                             <div class="ac-title">${icons.gavel} Punishment Information</div>
-                            <div class="ac-row"><span class="ac-label">Applicable Provision</span><span class="ac-value">§420 IPC (most severe)</span></div>
-                            <div class="ac-row"><span class="ac-label">Minimum Punishment</span><span class="ac-value">—</span></div>
-                            <div class="ac-row"><span class="ac-label">Maximum Punishment</span><span class="ac-value">Up to 7 years</span></div>
-                            <div class="ac-row"><span class="ac-label">Custody Undergone</span><span class="ac-value">${custodyDays} days (${(custodyDays / 365 * 100).toFixed(0)}% of 1 year)</span></div>
+                            <div class="ac-row"><span class="ac-label">Applicable Provision</span><span class="ac-value">Not verified from the current case input</span></div>
+                            <div class="ac-row"><span class="ac-label">Punishment range</span><span class="ac-value">Check the current bare Act and amendments</span></div>
+                            <div class="ac-row"><span class="ac-label">Custody comparison</span><span class="ac-value">Requires a verified offence and applicable rule</span></div>
                         </div>
 
                         <!-- Special Statutes -->
@@ -171,7 +238,7 @@ export function render() {
 
                     <!-- Procedural Checklist -->
                     <div class="card" style="margin-top: var(--space-6)">
-                        <h3 style="margin-bottom: var(--space-4)">${icons.check} Procedural Requirements for Bail</h3>
+                        <h3 style="margin-bottom: var(--space-4)">${icons.check} Bail Application Readiness Checklist</h3>
                         <div id="checklist-items">
                             <div class="loading-overlay" style="padding: var(--space-6)">
                                 <div class="spinner"></div>
@@ -217,20 +284,12 @@ export async function init() {
         document.getElementById('custody-rules-list').innerHTML = '<p style="padding: var(--space-4); color: var(--text-secondary)">Unable to load custody rules.</p>';
     }
 
-    // Load procedural checklist
+    // Load and persist the case-specific preparation checklist
     try {
         const { items } = await api.getChecklist('general', 'regular');
         const container = document.getElementById('checklist-items');
         if (items && items.length > 0) {
-            container.innerHTML = items.map(item => `
-                <div style="display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--neutral-100)">
-                    <span style="color: ${item.is_mandatory ? 'var(--danger-500)' : 'var(--text-tertiary)'}; flex-shrink: 0">${item.is_mandatory ? '●' : '○'}</span>
-                    <div>
-                        <span style="font-size: var(--text-sm)">${item.requirement}</span>
-                        ${item.is_mandatory ? `<span class="badge badge-danger" style="margin-left: var(--space-2)">Mandatory</span>` : ''}
-                    </div>
-                </div>
-            `).join('');
+            renderReadinessChecklist(items, container);
         } else {
             container.innerHTML = '<p style="padding: var(--space-4); color: var(--text-secondary)">No checklist items found.</p>';
         }

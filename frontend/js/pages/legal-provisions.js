@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Legal Provisions Search Page
+ * NyaySetu — Legal Provisions Search Page
  */
 import { navbar, icons, badge, provisionCard, aiBadge, disclaimer, showToast } from '../components.js';
 import { getRole } from '../state.js';

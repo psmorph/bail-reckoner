@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Secure File Handler
+NyaySetu Platform — Secure File Handler
 MIME validation, filename sanitization, and secure storage operations.
 """
 from __future__ import annotations

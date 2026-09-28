@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Investigation API Router
+NyaySetu Platform — Investigation API Router
 Manage police investigation entries, case diaries, and findings.
 """
 from __future__ import annotations

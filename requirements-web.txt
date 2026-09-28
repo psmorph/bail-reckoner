@@ -1,4 +1,4 @@
-# Additional dependencies for the Bail Reckoner web frontend
+# Additional dependencies for the NyaySetu web frontend
 # Install alongside the existing requirements.txt:
 #   pip install -r requirements-web.txt
 fastapi>=0.110

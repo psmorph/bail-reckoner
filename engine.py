@@ -1,4 +1,4 @@
-"""Explainable retrieval and rule-based screening helpers for Bail Reckoner."""
+"""Explainable retrieval and rule-based screening helpers for NyaySetu."""
 from __future__ import annotations
 
 import json

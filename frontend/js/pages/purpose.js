@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Purpose Selection Page
+ * NyaySetu — Purpose Selection Page
  */
 import { navbar, featureCard, icons } from '../components.js';
 import { getRole } from '../state.js';

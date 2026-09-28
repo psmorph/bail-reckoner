@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Application State Management
+ * NyaySetu — Application State Management
  * Manages current user role, case data, language, UI state,
  * and platform authentication.
  */

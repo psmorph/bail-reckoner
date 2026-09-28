@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Blockchain API Router
+NyaySetu Platform — Blockchain API Router
 Endpoints for blockchain registration, verification, and chain inspection.
 """
 from __future__ import annotations

@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner Platform — Case Details Page
+ * NyaySetu Platform — Case Details Page
  * Central case workspace with tabbed sections for documents, evidence,
  * investigation, forensic, court, blockchain, and audit trail.
  */

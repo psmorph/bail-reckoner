@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Main Application Entry Point
+ * NyaySetu — Main Application Entry Point
  * SPA router and global event handling.
  */
 

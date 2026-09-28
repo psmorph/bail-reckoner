@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Authentication Router
+NyaySetu Platform — Authentication Router
 Login, registration, token refresh, and user profile endpoints.
 """
 from __future__ import annotations

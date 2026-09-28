@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Case Law / Judgment Search Page
+ * NyaySetu — Case Law / Judgment Search Page
  */
 import { navbar, icons, badge, aiBadge, judgmentCard, disclaimer, showToast } from '../components.js';
 import { getRole } from '../state.js';

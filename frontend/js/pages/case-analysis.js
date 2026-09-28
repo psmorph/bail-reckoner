@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — AI Case Analysis Dashboard
+ * NyaySetu — AI Case Analysis Dashboard
  */
 import { navbar, icons, badge, aiBadge, statCard, accordion, disclaimer, alert, dataTable, caseCard } from '../components.js';
 import { getRole, getCurrentCase } from '../state.js';
@@ -35,6 +35,7 @@ export function render() {
                 </div>
                 <div class="page-actions">
                     <button class="btn btn-outline btn-sm" data-navigate="/bail-reckoner">${icons.scales} View Bail Assessment</button>
+                    <button class="btn btn-secondary btn-sm" id="download-case-brief">${icons.download} Download Case Brief</button>
                     <button class="btn btn-primary btn-sm" data-navigate="/lawyer-discovery">${icons.lawyer} Find a Lawyer</button>
                 </div>
             </div>
@@ -164,4 +165,43 @@ export function init() {
     // Open first accordion by default
     const firstAcc = document.querySelector('.accordion-item');
     if (firstAcc) firstAcc.classList.add('open');
+
+    document.getElementById('download-case-brief')?.addEventListener('click', () => {
+        const current = getCurrentCase() || {};
+        const caseInput = current.input || {};
+        const triggers = current.assessment?.triggers || [];
+        const judgments = current.similar_cases || [];
+        const lines = [
+            'NYAYSETU — CASE REVIEW BRIEF',
+            `Generated: ${new Date().toLocaleString()}`,
+            '',
+            'CASE INFORMATION',
+            `Sections: ${caseInput.sections || 'Not provided'}`,
+            `Special laws: ${caseInput.specialLaws || 'Not provided'}`,
+            `Bail type: ${caseInput.bailType || 'Not provided'}`,
+            `Arrest date: ${caseInput.arrestDate || 'Not provided'}`,
+            `Charge sheet filed: ${caseInput.chargeSheet ? 'Yes' : 'Not confirmed'}`,
+            `Custody duration recorded by system: ${current.custody_days ?? 'Not calculated'} days`,
+            '',
+            'CASE FACTS PROVIDED',
+            caseInput.facts || 'No case facts provided.',
+            '',
+            'REVIEW TRIGGERS',
+            ...(triggers.length ? triggers.map((trigger, index) => `${index + 1}. ${trigger}`) : ['No triggers recorded.']),
+            '',
+            'SIMILAR JUDGMENTS FOR HUMAN REVIEW',
+            ...(judgments.length ? judgments.map((judgment, index) => `${index + 1}. ${judgment.case_title || judgment.case_name || 'Untitled case'} | ${judgment.court || 'Court not listed'} | ${judgment.date || 'Date not listed'} | similarity ${judgment.similarity ?? 'not scored'}`) : ['No similar judgments were returned.']),
+            '',
+            'IMPORTANT: NyaySetu provides legal information and research support only. This brief is not legal advice, a bail prediction, or a court decision. Check every fact, provision, and source against current authoritative records with a qualified lawyer.'
+        ];
+        const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `nyaysetu-case-brief-${new Date().toISOString().slice(0, 10)}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
 }

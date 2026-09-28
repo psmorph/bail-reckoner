@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Authentication Middleware
+NyaySetu Platform — Authentication Middleware
 JWT token creation/validation + FastAPI dependency for protected routes.
 """
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Local Permissioned Blockchain
+NyaySetu Platform — Local Permissioned Blockchain
 A real (not faked) blockchain for document integrity proofs.
 Each block contains a document hash, previous block hash, and is mined with a nonce.
 """

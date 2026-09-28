@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Cryptographic Services
+NyaySetu Platform — Cryptographic Services
 SHA-256 hashing and Fernet symmetric encryption for document security.
 """
 from __future__ import annotations

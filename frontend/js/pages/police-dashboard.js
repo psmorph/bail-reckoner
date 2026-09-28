@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Police / Law Enforcement Dashboard
+ * NyaySetu — Police / Law Enforcement Dashboard
  */
 import { navbar, sidebar, icons, statCard, badge, dataTable, alert } from '../components.js';
 import { policeSidebarItems } from '../data.js';

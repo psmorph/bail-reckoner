@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Court Proceedings API Router
+NyaySetu Platform — Court Proceedings API Router
 Manage hearing records, court orders, and scheduling.
 """
 from __future__ import annotations

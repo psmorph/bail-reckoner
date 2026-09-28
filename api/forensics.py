@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Forensic Reports API Router
+NyaySetu Platform — Forensic Reports API Router
 Manage forensic analysis reports linked to cases and evidence.
 """
 from __future__ import annotations

@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Judicial / Court Dashboard
+ * NyaySetu — Judicial / Court Dashboard
  */
 import { navbar, sidebar, icons, badge, aiBadge, disclaimer, dataTable, statCard } from '../components.js';
 import { judicialSidebarItems, sampleCase } from '../data.js';

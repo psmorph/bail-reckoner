@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Lawyer Discovery / Matching Page
+ * NyaySetu — Lawyer Discovery / Matching Page
  */
 import { navbar, icons, badge } from '../components.js';
 import { getRole } from '../state.js';

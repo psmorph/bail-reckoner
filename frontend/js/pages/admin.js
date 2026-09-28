@@ -1,5 +1,5 @@
 /**
- * Bail Reckoner — Admin / Legal Database Management
+ * NyaySetu — Admin / Legal Database Management
  */
 import { navbar, sidebar, icons, badge, statCard, dataTable } from '../components.js';
 import { adminSidebarItems } from '../data.js';

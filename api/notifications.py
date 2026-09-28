@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Notifications API Router
+NyaySetu Platform — Notifications API Router
 Manage user notifications with read/unread status.
 """
 from __future__ import annotations

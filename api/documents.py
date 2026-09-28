@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Document Management Router
+NyaySetu Platform — Document Management Router
 Secure document upload, download, verification, and versioning.
 """
 from __future__ import annotations

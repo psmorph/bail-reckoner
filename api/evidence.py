@@ -1,5 +1,5 @@
 """
-Bail Reckoner Platform — Evidence Management API Router
+NyaySetu Platform — Evidence Management API Router
 Manage evidence items, chain of custody, and forensic tracking.
 """
 from __future__ import annotations

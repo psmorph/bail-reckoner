@@ -1,5 +1,5 @@
 """
-Bail Reckoner — FastAPI Backend
+NyaySetu — FastAPI Backend
 Wraps the existing engine.py functions and serves the web frontend.
 Extended with platform authentication and security modules.
 """
@@ -46,7 +46,7 @@ init_platform_tables()
 # App
 # ---------------------------------------------------------------------------
 app = FastAPI(
-    title="Bail Reckoner API",
+    title="NyaySetu API",
     description="AI-assisted legal intelligence and bail assessment platform",
     version="2.0.0",
 )

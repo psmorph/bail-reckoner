@@ -1,4 +1,4 @@
-# Bail Reckoner — AI-Assisted Legal Intelligence Platform
+# NyaySetu — AI-Assisted Legal Intelligence Platform
 
 An explainable bail-judgment retrieval prototype for Indian legal-tech research. It retrieves similar historical judgments and surfaces rule-based review triggers. It does **not** predict, approve, reject, or guarantee bail and is not legal advice.
 
@@ -9,7 +9,7 @@ An explainable bail-judgment retrieval prototype for Indian legal-tech research.
 │                    Frontend (Vanilla JS SPA)              │
 │  ├── Landing / Login / Purpose Selection                  │
 │  ├── Case Management (Search, Upload, Analysis, Details)  │
-│  ├── Bail Reckoner (Assessment + Similar Judgments)        │
+│  ├── Bail Review (Assessment + Similar Judgments)          │
 │  ├── Legal Provisions Browser                             │
 │  ├── Lawyer Discovery & Profiles                          │
 │  ├── Role Dashboards (Lawyer / Police / Judicial / Admin) │
@@ -68,7 +68,7 @@ python run_web.py
 # → opens http://localhost:8000
 ```
 
-### Data Pipeline (Original Bail Reckoner)
+### Data Pipeline (Research Prototype)
 
 ```powershell
 python ml\inspect_dataset.py "C:\Users\amant\AppData\Local\Temp\indian_bail_judgments.csv"
@@ -188,3 +188,9 @@ The optional `evaluate.py` experiment uses stratified train/validation/test spli
 ## Limitations and Next Steps
 
 The source summaries are not authoritative law, section mappings need verification against current bare Acts, and similarity is not legal relevance. Add authoritative citations and provenance, improve section parsing, review duplicates manually, add automated tests, and conduct legal expert validation before any real-world use.
+
+## NyaySetu additions
+
+- The bail review page includes a case-specific readiness checklist. Completion state is stored in the current browser and can be copied for discussion with counsel.
+- The case analysis page can export a plain-text review brief with submitted facts, system review triggers, and returned similar judgments.
+- These features support preparation and communication only. The checklist is a general prompt, and the exported brief is not legal advice or a bail decision.
