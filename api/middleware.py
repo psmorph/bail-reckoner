@@ -22,23 +22,22 @@ DEV_DEFAULT_SECRET = "dev-secret-change-in-production-please"
 
 def validate_jwt_secret() -> str:
     """Validate that the JWT secret is present and strong enough for startup."""
-    app_env = os.getenv("APP_ENV", "development").lower()
+    app_env = os.getenv("APP_ENV", "production").lower()
     secret = os.getenv("JWT_SECRET_KEY")
-
-    if secret:
-        if len(secret) < 32:
-            raise RuntimeError("JWT_SECRET_KEY must be at least 32 characters long.")
-        if secret == DEV_DEFAULT_SECRET:
-            raise RuntimeError("JWT_SECRET_KEY must not be the development default value.")
-        return secret
+    secret_value = secret.strip() if isinstance(secret, str) else ""
 
     if app_env == "development":
-        secret = secrets.token_urlsafe(32)
-        os.environ["JWT_SECRET_KEY"] = secret
-        print("WARNING: JWT_SECRET_KEY was missing in development mode; a per-process secret was generated.")
-        return secret
+        if not secret_value:
+            secret_value = secrets.token_urlsafe(32)
+            os.environ["JWT_SECRET_KEY"] = secret_value
+            print("WARNING: JWT_SECRET_KEY was missing in development mode; a per-process secret was generated.")
+        if len(secret_value) < 32 or secret_value == DEV_DEFAULT_SECRET:
+            raise RuntimeError("JWT_SECRET_KEY must be at least 32 characters long and must not use the development default.")
+        return secret_value
 
-    raise RuntimeError("JWT_SECRET_KEY is required in production. Set it in the environment or .env file.")
+    if not secret_value or len(secret_value) < 32 or secret_value == DEV_DEFAULT_SECRET:
+        raise RuntimeError("JWT_SECRET_KEY is required in production. Set it in the environment or .env file.")
+    return secret_value
 
 
 def _get_secret() -> str:

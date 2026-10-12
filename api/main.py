@@ -6,7 +6,6 @@ Extended with platform authentication and security modules.
 from __future__ import annotations
 
 import os
-import sqlite3
 import sys
 from contextlib import asynccontextmanager
 from io import BytesIO
@@ -27,7 +26,7 @@ from starlette.concurrency import run_in_threadpool
 # ---------------------------------------------------------------------------
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
 except ImportError:
     pass  # python-dotenv is optional for basic operation
 
@@ -330,8 +329,8 @@ async def get_provisions(
         return {"provisions": [], "count": 0}
 
     results = []
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db() as conn:
+        conn.row_factory = __import__('sqlite3').Row
 
         # --- IPC/BNS offenses ---
         if _table_exists(conn, "offenses"):
@@ -383,7 +382,7 @@ async def get_provision_categories(current_user: CurrentUser = Depends(get_curre
     """Return distinct categories and acts for filter dropdowns."""
     if not DB_PATH.exists():
         return {"categories": [], "acts": []}
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_db() as conn:
         cats = [r[0] for r in conn.execute("SELECT DISTINCT category FROM offenses").fetchall() if r[0]]
         acts = [r[0] for r in conn.execute("SELECT DISTINCT act_name FROM special_acts_offenses").fetchall() if r[0]]
     return {"categories": cats, "acts": acts}
@@ -396,8 +395,8 @@ async def get_custody_rules(current_user: CurrentUser = Depends(get_current_user
     """Return statutory custody threshold rules."""
     if not DB_PATH.exists():
         return {"rules": []}
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db() as conn:
+        conn.row_factory = __import__('sqlite3').Row
         if not _table_exists(conn, "custody_rules"):
             return {"rules": []}
         rows = conn.execute("SELECT * FROM custody_rules").fetchall()
@@ -415,8 +414,8 @@ async def get_checklist(
     """Return the procedural checklist for bail applications."""
     if not DB_PATH.exists():
         return {"items": []}
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db() as conn:
+        conn.row_factory = __import__('sqlite3').Row
         if not _table_exists(conn, "procedural_checklist"):
             return {"items": []}
         q = "SELECT * FROM procedural_checklist"
@@ -446,8 +445,8 @@ async def get_judgments(
     """Return landmark judgments from the seed database."""
     if not DB_PATH.exists():
         return {"judgments": []}
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db() as conn:
+        conn.row_factory = __import__('sqlite3').Row
         if not _table_exists(conn, "judgments"):
             return {"judgments": []}
         q = "SELECT * FROM judgments"

@@ -32,22 +32,23 @@ def get_fernet():
     from cryptography.fernet import Fernet
 
     key = os.getenv("DOCUMENT_ENCRYPTION_KEY")
-    app_env = os.getenv("APP_ENV", "development").lower()
+    app_env = os.getenv("APP_ENV", "production").lower()
     dev_key_path = Path(__file__).resolve().parent.parent / ".dev_fernet_key"
+    key_value = key.strip() if isinstance(key, str) else ""
 
-    if not key or key == DEFAULT_FERNET_KEY:
-        if app_env == "development":
+    if app_env == "development":
+        if not key_value or key_value == DEFAULT_FERNET_KEY:
             if dev_key_path.exists():
-                key = dev_key_path.read_text(encoding="utf-8").strip()
+                key_value = dev_key_path.read_text(encoding="utf-8").strip()
             else:
-                key = Fernet.generate_key().decode()
-                dev_key_path.write_text(key, encoding="utf-8")
+                key_value = Fernet.generate_key().decode()
+                dev_key_path.write_text(key_value, encoding="utf-8")
                 print("WARNING: DOCUMENT_ENCRYPTION_KEY missing; using a development-only key stored at .dev_fernet_key")
-        else:
-            raise RuntimeError("DOCUMENT_ENCRYPTION_KEY is required and must be a valid Fernet key.")
+    elif not key_value or key_value == DEFAULT_FERNET_KEY:
+        raise RuntimeError("DOCUMENT_ENCRYPTION_KEY is required and must be a valid Fernet key.")
 
     try:
-        return Fernet(key.encode() if isinstance(key, str) else key)
+        return Fernet(key_value.encode() if isinstance(key_value, str) else key_value)
     except Exception as exc:
         raise RuntimeError("DOCUMENT_ENCRYPTION_KEY is not a valid Fernet key.") from exc
 
