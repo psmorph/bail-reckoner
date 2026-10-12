@@ -9,7 +9,7 @@ import json
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 
-from api.access import check_case_access
+from api.access import accessible_case_clause, check_case_access
 from api.database import generate_id, get_db, now_iso
 from api.middleware import CurrentUser, get_current_user, get_client_ip
 from services.audit import log_document_event
@@ -125,16 +125,11 @@ async def list_documents(
             check_case_access(conn, case_id, current_user)
             conds.append("d.case_id = ?")
             params.append(case_id)
-        elif current_user.role_id not in ("master_admin", "auditor", "court_admin", "court_officer"):
-            visible_case_ids = conn.execute(
-                "SELECT id FROM cases WHERE " + ("1=1" if current_user.role_id in ("master_admin", "auditor") else "(organization_id = ? OR created_by = ? OR assigned_investigator = ? OR assigned_forensic = ?)")
-                , [current_user.organization_id, current_user.id, current_user.id, current_user.id]
-            ).fetchall()
-            if not visible_case_ids:
-                return {"documents": [], "count": 0}
-            placeholders = ", ".join("?" for _ in visible_case_ids)
-            conds.append(f"d.case_id IN ({placeholders})")
-            params.extend([row["id"] for row in visible_case_ids])
+        else:
+            access_clause, access_params = accessible_case_clause(current_user)
+            if access_clause != "1=1":
+                conds.append(f"d.case_id IN (SELECT c.id FROM cases c WHERE {access_clause})")
+                params.extend(access_params)
 
         if doc_type:
             conds.append("d.doc_type = ?")

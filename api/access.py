@@ -39,5 +39,5 @@ def check_case_access(conn, case_id: str, user) -> dict:
     forensic_match = case_dict.get("assigned_forensic") == user.id
 
     if not (org_match or creator_match or investigator_match or forensic_match):
-        raise HTTPException(status_code=403, detail="Access denied to this case")
+        raise HTTPException(status_code=404, detail="Case not found")
     return case_dict

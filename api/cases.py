@@ -178,7 +178,7 @@ async def case_stats(current_user: CurrentUser = Depends(get_current_user)):
         if current_user.role_id not in ("master_admin", "auditor", "court_admin", "court_officer"):
             clause, clause_params = accessible_case_clause(current_user)
             if clause != "1=1":
-                where.append(f"c.{clause[2:]}" if clause.startswith("(") else clause)
+                where.append(clause)
                 params.extend(clause_params)
 
         case_filter = " WHERE " + " AND ".join(where) if where else ""

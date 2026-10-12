@@ -9,14 +9,12 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from api.access import check_case_access
+from api.access import accessible_case_clause, check_case_access
 from api.database import get_db
 from api.middleware import CurrentUser, get_current_user, get_client_ip
 from services.audit import log_event
 from services.blockchain import (
-    get_chain_length,
     get_document_blockchain_record,
-    get_latest_block,
     register_document,
     verify_chain_integrity,
 )
@@ -51,6 +49,8 @@ async def register_on_blockchain(
 
     doc_dict = dict(doc)
     case_id = req.case_id or doc_dict.get("case_id", "")
+    if case_id != doc_dict["case_id"]:
+        raise HTTPException(status_code=404, detail="Document not found")
 
     result = register_document(
         document_id=req.document_id,
@@ -127,24 +127,26 @@ async def get_chain(
     current_user.require_permission(Permission.BLOCKCHAIN_READ)
 
     with get_db() as conn:
-        visible_cases = conn.execute(
-            "SELECT id FROM cases WHERE " + ("1=1" if current_user.role_id in ("master_admin", "auditor") else "(organization_id = ? OR created_by = ? OR assigned_investigator = ? OR assigned_forensic = ?)")
-            , ([current_user.organization_id, current_user.id, current_user.id, current_user.id] if current_user.role_id not in ("master_admin", "auditor") else [])
-        ).fetchall()
-        if not visible_cases:
-            return {"blocks": [], "chain_length": 0, "latest_block": None}
-        visible_ids = tuple(row[0] for row in visible_cases)
+        access_clause, access_params = accessible_case_clause(current_user)
+        visible_blocks = "1=1" if access_clause == "1=1" else f"b.case_id IN (SELECT c.id FROM cases c WHERE {access_clause})"
         rows = conn.execute(
             "SELECT b.*, d.original_name as doc_name FROM blockchain_records b "
             "LEFT JOIN documents d ON b.document_id = d.id "
-            "WHERE b.case_id IN ({}) ORDER BY b.block_index DESC LIMIT ?".format(",".join("?" for _ in visible_ids)),
-            (*visible_ids, limit),
+            f"WHERE {visible_blocks} ORDER BY b.block_index DESC LIMIT ?",
+            (*access_params, limit) if access_clause != "1=1" else (limit,),
         ).fetchall()
+        chain_length = conn.execute(
+            f"SELECT COUNT(*) FROM blockchain_records b WHERE {visible_blocks}", access_params
+        ).fetchone()[0]
+        latest = conn.execute(
+            f"SELECT b.* FROM blockchain_records b WHERE {visible_blocks} ORDER BY b.block_index DESC LIMIT 1",
+            access_params,
+        ).fetchone()
 
     return {
         "blocks": [dict(r) for r in rows],
-        "chain_length": get_chain_length(),
-        "latest_block": get_latest_block(),
+        "chain_length": chain_length,
+        "latest_block": dict(latest) if latest else None,
     }
 
 

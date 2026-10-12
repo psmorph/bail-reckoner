@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from api.access import check_case_access
+from api.access import accessible_case_clause, check_case_access
 from api.database import get_db, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user
 from services.rbac import Permission
@@ -84,6 +84,11 @@ async def list_investigation_entries(
             check_case_access(conn, case_id, current_user)
         conds.append("i.case_id = ?")
         params.append(case_id)
+    else:
+        access_clause, access_params = accessible_case_clause(current_user)
+        if access_clause != "1=1":
+            conds.append(f"i.case_id IN (SELECT c.id FROM cases c WHERE {access_clause})")
+            params.extend(access_params)
     if entry_type:
         conds.append("i.entry_type = ?")
         params.append(entry_type)
