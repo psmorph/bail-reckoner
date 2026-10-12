@@ -15,10 +15,13 @@ env/
 # Environment secrets
 .env
 .dev_fernet_key
+secure_vault/
 
 # Database
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
 *.db-wal
 *.db-shm
 
