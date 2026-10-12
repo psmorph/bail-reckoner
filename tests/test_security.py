@@ -23,6 +23,18 @@ def test_fernet_key_is_required_in_production(monkeypatch):
         get_fernet()
 
 
+def test_only_exact_development_environment_allows_fallbacks(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "Development")
+    monkeypatch.setenv("JWT_SECRET_KEY", "")
+    monkeypatch.setenv("DOCUMENT_ENCRYPTION_KEY", "")
+    get_fernet.cache_clear()
+
+    with pytest.raises(RuntimeError, match="JWT_SECRET_KEY is required in production"):
+        validate_jwt_secret()
+    with pytest.raises(RuntimeError, match="DOCUMENT_ENCRYPTION_KEY is required"):
+        get_fernet()
+
+
 def test_public_registration_requires_authentication_when_disabled(monkeypatch, isolated_db):
     import api.main as main_module
     importlib.reload(main_module)
@@ -185,3 +197,108 @@ def test_unfiltered_lists_only_return_accessible_cases(monkeypatch, isolated_db)
             assert chain["latest_block"]["id"] == "block-a"
     finally:
         main_module.app.dependency_overrides.clear()
+
+
+def test_registration_requires_role_management_permission(client, login_as):
+    request_body = {
+        "email": "created-user@example.com",
+        "password": "StrongPassword123",
+        "full_name": "Created User",
+    }
+    officer_headers = login_as("si.sharma@police.dl.in")
+    officer_response = client.post(
+        "/api/auth/register",
+        headers=officer_headers,
+        json={**request_body, "role_id": "viewer"},
+    )
+    assert officer_response.status_code == 403
+
+    admin_headers = login_as("sp.central@police.dl.in")
+    for role_id in ("master_admin", "police_admin"):
+        response = client.post(
+            "/api/auth/register",
+            headers=admin_headers,
+            json={**request_body, "email": f"{role_id}@example.com", "role_id": role_id},
+        )
+        assert response.status_code == 403
+
+
+def test_database_routes_require_authentication(client):
+    for endpoint in (
+        "/api/provisions",
+        "/api/provisions/categories",
+        "/api/custody-rules",
+        "/api/checklist",
+        "/api/judgments",
+    ):
+        response = client.get(endpoint)
+        assert response.status_code == 401, endpoint
+
+
+def test_seeded_cross_organization_access_is_denied(client, login_as):
+    from api.database import get_db
+
+    case_id = "CASE-2026-00001"
+    sharma_headers = login_as("si.sharma@police.dl.in")
+    upload = client.post(
+        "/api/documents",
+        params={"case_id": case_id, "doc_type": "evidence"},
+        headers=sharma_headers,
+        files={"file": ("private.txt", b"case-private-content", "text/plain")},
+    )
+    assert upload.status_code == 201, upload.text
+    document_id = upload.json()["document_id"]
+
+    evidence_response = client.post(
+        "/api/evidence",
+        headers=sharma_headers,
+        json={"case_id": case_id, "description": "Private evidence"},
+    )
+    assert evidence_response.status_code == 200, evidence_response.text
+    evidence_id = evidence_response.json()["evidence_id"]
+
+    proceeding_response = client.post(
+        "/api/court-proceedings",
+        headers=sharma_headers,
+        json={"case_id": case_id, "hearing_date": "2026-10-15"},
+    )
+    assert proceeding_response.status_code == 200, proceeding_response.text
+    proceeding_id = proceeding_response.json()["proceeding_id"]
+
+    report_id = "TEST-FORENSIC-PRIVATE"
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO forensic_reports (id, case_id, title, officer_id) VALUES (?, ?, ?, ?)",
+            (report_id, case_id, "Private forensic report", "USR-POLICE-01"),
+        )
+
+    blockchain_response = client.post(
+        "/api/blockchain/register",
+        headers=sharma_headers,
+        json={"document_id": document_id, "case_id": case_id},
+    )
+    assert blockchain_response.status_code == 200, blockchain_response.text
+
+    verma_headers = login_as("si.verma@police.dl.in")
+    for method, endpoint in (
+        ("get", f"/api/documents/{document_id}"),
+        ("get", f"/api/documents/{document_id}/download"),
+        ("post", f"/api/documents/{document_id}/verify"),
+        ("get", f"/api/evidence/{evidence_id}"),
+        ("get", f"/api/court-proceedings/{proceeding_id}"),
+        ("get", f"/api/blockchain/verify/{document_id}"),
+    ):
+        response = getattr(client, method)(endpoint, headers=verma_headers)
+        assert response.status_code == 404, endpoint
+
+    assert document_id not in {item["id"] for item in client.get("/api/documents", headers=verma_headers).json()["documents"]}
+    assert evidence_id not in {item["id"] for item in client.get("/api/evidence", headers=verma_headers).json()["evidence"]}
+    assert proceeding_id not in {item["id"] for item in client.get("/api/court-proceedings", headers=verma_headers).json()["proceedings"]}
+    visible_blocks = client.get("/api/blockchain/chain", headers=verma_headers).json()["blocks"]
+    assert case_id not in {block["case_id"] for block in visible_blocks}
+
+    investigator_headers = login_as("io.gupta@police.dl.in")
+    forensic_get = client.get(f"/api/forensics/{report_id}", headers=investigator_headers)
+    assert forensic_get.status_code == 404
+    forensic_list = client.get("/api/forensics", headers=investigator_headers).json()["reports"]
+    assert report_id not in {item["id"] for item in forensic_list}
