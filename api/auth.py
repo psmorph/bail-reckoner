@@ -144,40 +144,40 @@ async def register(req: RegisterRequest, request: Request, current_user: Optiona
     ip = get_client_ip(request)
     allow_public = str(os.getenv("ALLOW_PUBLIC_REGISTRATION", "false")).lower() == "true"
 
-    if not allow_public and current_user is None:
-        log_event("user_create_denied", user_id="", user_email=str(req.email), ip_address=ip,
-                  result="failure", severity="warning", metadata=json.dumps({"reason": "unauthenticated"}))
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
-
-    if current_user is not None:
-        current_user.require_permission(Permission.USER_CREATE)
-
-    if allow_public and current_user is None:
+    if current_user is None:
+        if not allow_public:
+            log_event("user_create_denied", user_id="", user_email=str(req.email), ip_address=ip,
+                      result="failure", severity="warning", metadata=json.dumps({"reason": "unauthenticated"}))
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
         role_id = "viewer"
         organization_id = ""
     else:
+        current_user.require_permission(Permission.USER_CREATE)
         role_id = req.role_id
         organization_id = req.organization_id or ""
 
-    if role_id == "master_admin":
-        log_event("user_create_denied", user_id=current_user.id if current_user else "", user_email=str(req.email),
-                  ip_address=ip, result="failure", severity="warning", metadata=json.dumps({"reason": "master_admin_not_allowed"}))
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="master_admin cannot be created via API")
+        if role_id == "master_admin":
+            log_event("user_create_denied", user_id=current_user.id, user_email=str(req.email),
+                      ip_address=ip, result="failure", severity="warning",
+                      metadata=json.dumps({"reason": "master_admin_not_allowed"}))
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="master_admin cannot be created via API")
+
+        if not can_manage_role(current_user.role_id, role_id):
+            log_event("user_create_denied", user_id=current_user.id, user_email=str(req.email), ip_address=ip,
+                      result="failure", severity="warning",
+                      metadata=json.dumps({"reason": "role_not_allowed", "requested": role_id, "caller": current_user.role_id}))
+            raise HTTPException(status_code=403, detail="You do not have permission to create this role")
+
+        if organization_id and organization_id != current_user.organization_id:
+            log_event("user_create_denied", user_id=current_user.id, user_email=str(req.email), ip_address=ip,
+                      result="failure", severity="warning",
+                      metadata=json.dumps({"reason": "org_mismatch", "requested_org": organization_id, "caller_org": current_user.organization_id}))
+            raise HTTPException(status_code=403, detail="You may only create users in your own organization")
 
     if role_id not in set(__import__('services.rbac', fromlist=['ROLE_PERMISSIONS']).ROLE_PERMISSIONS):
         log_event("user_create_denied", user_id=current_user.id if current_user else "", user_email=str(req.email),
                   ip_address=ip, result="failure", severity="warning", metadata=json.dumps({"reason": "invalid_role", "role_id": role_id}))
         raise HTTPException(status_code=400, detail=f"Invalid role: {role_id}")
-
-    if current_user is not None and current_user.role_id != "master_admin":
-        if not can_manage_role(current_user.role_id, role_id):
-            log_event("user_create_denied", user_id=current_user.id, user_email=str(req.email), ip_address=ip,
-                      result="failure", severity="warning", metadata=json.dumps({"reason": "role_not_allowed", "requested": role_id, "caller": current_user.role_id}))
-            raise HTTPException(status_code=403, detail="You do not have permission to create this role")
-        if organization_id and organization_id != current_user.organization_id:
-            log_event("user_create_denied", user_id=current_user.id, user_email=str(req.email), ip_address=ip,
-                      result="failure", severity="warning", metadata=json.dumps({"reason": "org_mismatch", "requested_org": organization_id, "caller_org": current_user.organization_id}))
-            raise HTTPException(status_code=403, detail="You may only create users in your own organization")
 
     if not req.password or len(req.password) < 12 or not any(ch.isalpha() for ch in req.password) or not any(ch.isdigit() for ch in req.password):
         log_event("user_create_denied", user_id=current_user.id if current_user else "", user_email=str(req.email),
