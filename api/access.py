@@ -13,6 +13,8 @@ def accessible_case_clause(user):
         return "1=1", []
     if user.role_id in ("court_admin", "court_officer"):
         return "1=1", []
+    if not user.organization_id:
+        return "(c.created_by = ? OR c.assigned_investigator = ? OR c.assigned_forensic = ?)", [user.id, user.id, user.id]
     return (
         "(c.organization_id = ? OR c.created_by = ? OR c.assigned_investigator = ? OR c.assigned_forensic = ?)",
         [user.organization_id, user.id, user.id, user.id],

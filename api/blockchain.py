@@ -9,6 +9,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from api.access import check_case_access
 from api.database import get_db
 from api.middleware import CurrentUser, get_current_user, get_client_ip
 from services.audit import log_event
@@ -46,6 +47,7 @@ async def register_on_blockchain(
         ).fetchone()
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
+        check_case_access(conn, dict(doc)["case_id"], current_user)
 
     doc_dict = dict(doc)
     case_id = req.case_id or doc_dict.get("case_id", "")
@@ -89,6 +91,12 @@ async def verify_document_on_chain(
     """Verify a document's integrity against its blockchain record."""
     current_user.require_permission(Permission.BLOCKCHAIN_READ)
 
+    with get_db() as conn:
+        doc = conn.execute("SELECT id, case_id, sha256_hash FROM documents WHERE id = ?", (document_id,)).fetchone()
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+        check_case_access(conn, dict(doc)["case_id"], current_user)
+
     record = get_document_blockchain_record(document_id)
     if not record:
         return {"registered": False, "message": "No blockchain record found for this document"}
@@ -119,11 +127,18 @@ async def get_chain(
     current_user.require_permission(Permission.BLOCKCHAIN_READ)
 
     with get_db() as conn:
+        visible_cases = conn.execute(
+            "SELECT id FROM cases WHERE " + ("1=1" if current_user.role_id in ("master_admin", "auditor") else "(organization_id = ? OR created_by = ? OR assigned_investigator = ? OR assigned_forensic = ?)")
+            , ([current_user.organization_id, current_user.id, current_user.id, current_user.id] if current_user.role_id not in ("master_admin", "auditor") else [])
+        ).fetchall()
+        if not visible_cases:
+            return {"blocks": [], "chain_length": 0, "latest_block": None}
+        visible_ids = tuple(row[0] for row in visible_cases)
         rows = conn.execute(
             "SELECT b.*, d.original_name as doc_name FROM blockchain_records b "
             "LEFT JOIN documents d ON b.document_id = d.id "
-            "ORDER BY b.block_index DESC LIMIT ?",
-            (limit,),
+            "WHERE b.case_id IN ({}) ORDER BY b.block_index DESC LIMIT ?".format(",".join("?" for _ in visible_ids)),
+            (*visible_ids, limit),
         ).fetchall()
 
     return {

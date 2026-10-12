@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from api.access import check_case_access
 from api.database import get_db, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user
 from services.rbac import Permission
@@ -45,9 +46,7 @@ async def create_proceeding(
     now = now_iso()
 
     with get_db() as conn:
-        case = conn.execute("SELECT id FROM cases WHERE id = ?", (req.case_id,)).fetchone()
-        if not case:
-            raise HTTPException(status_code=404, detail="Case not found")
+        check_case_access(conn, req.case_id, current_user)
 
         conn.execute(
             """INSERT INTO court_proceedings (id, case_id, hearing_date, hearing_type, court_name,
@@ -87,6 +86,8 @@ async def list_proceedings(
     params = []
 
     if case_id:
+        with get_db() as conn:
+            check_case_access(conn, case_id, current_user)
         conds.append("cp.case_id = ?")
         params.append(case_id)
     if hearing_type:
@@ -124,6 +125,8 @@ async def get_proceeding(
 
     if not row:
         raise HTTPException(status_code=404, detail="Court proceeding not found")
+    with get_db() as conn:
+        check_case_access(conn, dict(row)["case_id"], current_user)
 
     return dict(row)
 
@@ -141,6 +144,7 @@ async def update_proceeding(
         row = conn.execute("SELECT * FROM court_proceedings WHERE id = ?", (proceeding_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Court proceeding not found")
+        check_case_access(conn, dict(row)["case_id"], current_user)
 
         updates = []
         params = []

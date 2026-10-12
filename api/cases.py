@@ -173,24 +173,40 @@ async def case_stats(current_user: CurrentUser = Depends(get_current_user)):
     current_user.require_permission(Permission.CASE_READ)
 
     with get_db() as conn:
-        # Build RBAC filter
-        where = ""
+        where = []
         params = []
         if current_user.role_id not in ("master_admin", "auditor", "court_admin", "court_officer"):
-            where = "WHERE (organization_id = ? OR created_by = ? OR assigned_investigator = ? OR assigned_forensic = ?)"
-            params = [current_user.organization_id, current_user.id, current_user.id, current_user.id]
+            clause, clause_params = accessible_case_clause(current_user)
+            if clause != "1=1":
+                where.append(f"c.{clause[2:]}" if clause.startswith("(") else clause)
+                params.extend(clause_params)
 
-        total = conn.execute(f"SELECT COUNT(*) FROM cases {where}", params).fetchone()[0]
-        active = conn.execute(f"SELECT COUNT(*) FROM cases {where} {'AND' if where else 'WHERE'} status = 'active'",
-                              params).fetchone()[0]
-        closed = conn.execute(f"SELECT COUNT(*) FROM cases {where} {'AND' if where else 'WHERE'} status = 'closed'",
-                              params).fetchone()[0]
+        case_filter = " WHERE " + " AND ".join(where) if where else ""
+        total = conn.execute(f"SELECT COUNT(*) FROM cases c{case_filter}", params).fetchone()[0]
+        active = conn.execute(
+            f"SELECT COUNT(*) FROM cases c{case_filter} AND c.status = 'active'" if where else "SELECT COUNT(*) FROM cases WHERE status = 'active'",
+            params,
+        ).fetchone()[0]
+        closed = conn.execute(
+            f"SELECT COUNT(*) FROM cases c{case_filter} AND c.status = 'closed'" if where else "SELECT COUNT(*) FROM cases WHERE status = 'closed'",
+            params,
+        ).fetchone()[0]
 
-        doc_count = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
-        evidence_count = conn.execute("SELECT COUNT(*) FROM evidence").fetchone()[0]
+        document_filter = ""
+        document_params = []
+        if where:
+            document_filter = " WHERE d.case_id IN (SELECT c.id FROM cases c" + case_filter + ")"
+            document_params = list(params)
+        doc_count = conn.execute(f"SELECT COUNT(*) FROM documents d{document_filter}", document_params).fetchone()[0]
 
-        # Recent cases
-        recent_q = f"SELECT id, title, status, priority, created_at FROM cases {where} ORDER BY created_at DESC LIMIT 5"
+        evidence_filter = ""
+        evidence_params = []
+        if where:
+            evidence_filter = " WHERE e.case_id IN (SELECT c.id FROM cases c" + case_filter + ")"
+            evidence_params = list(params)
+        evidence_count = conn.execute(f"SELECT COUNT(*) FROM evidence e{evidence_filter}", evidence_params).fetchone()[0]
+
+        recent_q = f"SELECT id, title, status, priority, created_at FROM cases c{case_filter} ORDER BY created_at DESC LIMIT 5"
         recent = conn.execute(recent_q, params).fetchall()
 
     return {

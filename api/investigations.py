@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from api.access import check_case_access
 from api.database import get_db, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user
 from services.rbac import Permission
@@ -42,10 +43,7 @@ async def create_investigation_entry(
     now = now_iso()
 
     with get_db() as conn:
-        # Verify case exists
-        case = conn.execute("SELECT id FROM cases WHERE id = ?", (req.case_id,)).fetchone()
-        if not case:
-            raise HTTPException(status_code=404, detail="Case not found")
+        check_case_access(conn, req.case_id, current_user)
 
         conn.execute(
             """INSERT INTO investigations (id, case_id, investigator_id, entry_type, title, content, findings, created_at, updated_at)
@@ -82,6 +80,8 @@ async def list_investigation_entries(
     params = []
 
     if case_id:
+        with get_db() as conn:
+            check_case_access(conn, case_id, current_user)
         conds.append("i.case_id = ?")
         params.append(case_id)
     if entry_type:
@@ -119,6 +119,8 @@ async def get_investigation_entry(
 
     if not row:
         raise HTTPException(status_code=404, detail="Investigation entry not found")
+    with get_db() as conn:
+        check_case_access(conn, dict(row)["case_id"], current_user)
 
     return dict(row)
 
@@ -136,6 +138,7 @@ async def update_investigation_entry(
         row = conn.execute("SELECT * FROM investigations WHERE id = ?", (id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Investigation entry not found")
+        check_case_access(conn, dict(row)["case_id"], current_user)
 
         updates = []
         params = []

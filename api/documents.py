@@ -9,6 +9,7 @@ import json
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 
+from api.access import check_case_access
 from api.database import generate_id, get_db, now_iso
 from api.middleware import CurrentUser, get_current_user, get_client_ip
 from services.audit import log_document_event
@@ -40,9 +41,7 @@ async def upload_document(
 
     # Validate case access
     with get_db() as conn:
-        case = conn.execute("SELECT id FROM cases WHERE id = ?", (case_id,)).fetchone()
-        if not case:
-            raise HTTPException(status_code=404, detail="Case not found")
+        check_case_access(conn, case_id, current_user)
 
     # Validate file
     original_name = sanitize_filename(file.filename or "unnamed")
@@ -123,8 +122,19 @@ async def list_documents(
         params = []
 
         if case_id:
+            check_case_access(conn, case_id, current_user)
             conds.append("d.case_id = ?")
             params.append(case_id)
+        elif current_user.role_id not in ("master_admin", "auditor", "court_admin", "court_officer"):
+            visible_case_ids = conn.execute(
+                "SELECT id FROM cases WHERE " + ("1=1" if current_user.role_id in ("master_admin", "auditor") else "(organization_id = ? OR created_by = ? OR assigned_investigator = ? OR assigned_forensic = ?)")
+                , [current_user.organization_id, current_user.id, current_user.id, current_user.id]
+            ).fetchall()
+            if not visible_case_ids:
+                return {"documents": [], "count": 0}
+            placeholders = ", ".join("?" for _ in visible_case_ids)
+            conds.append(f"d.case_id IN ({placeholders})")
+            params.extend([row["id"] for row in visible_case_ids])
 
         if doc_type:
             conds.append("d.doc_type = ?")
@@ -158,6 +168,7 @@ async def get_document_info(
 
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
+        check_case_access(conn, dict(doc)["case_id"], current_user)
 
         # Get versions
         versions = conn.execute(
@@ -201,8 +212,9 @@ async def download_document(
         doc = conn.execute("SELECT * FROM documents WHERE id = ? AND is_deleted = 0", (doc_id,)).fetchone()
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
+        doc_dict = dict(doc)
+        check_case_access(conn, doc_dict["case_id"], current_user)
 
-    doc_dict = dict(doc)
     try:
         data = retrieve_file(doc_dict["file_name"], encrypted=bool(doc_dict["encrypted"]))
     except FileNotFoundError:
@@ -236,6 +248,8 @@ async def verify_document(
         doc = conn.execute("SELECT * FROM documents WHERE id = ? AND is_deleted = 0", (doc_id,)).fetchone()
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
+        doc_dict = dict(doc)
+        check_case_access(conn, doc_dict["case_id"], current_user)
 
     doc_dict = dict(doc)
     registered_hash = doc_dict.get("sha256_hash", "")

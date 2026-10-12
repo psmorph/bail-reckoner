@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from api.access import check_case_access
 from api.database import get_db, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user
 from services.rbac import Permission
@@ -44,13 +45,13 @@ async def create_forensic_report(
     now = now_iso()
 
     with get_db() as conn:
-        case = conn.execute("SELECT id FROM cases WHERE id = ?", (req.case_id,)).fetchone()
-        if not case:
-            raise HTTPException(status_code=404, detail="Case not found")
+        check_case_access(conn, req.case_id, current_user)
 
         if req.evidence_id:
-            evidence = conn.execute("SELECT id FROM evidence WHERE id = ?", (req.evidence_id,)).fetchone()
+            evidence = conn.execute("SELECT id, case_id FROM evidence WHERE id = ?", (req.evidence_id,)).fetchone()
             if not evidence:
+                raise HTTPException(status_code=404, detail="Evidence not found")
+            if dict(evidence)["case_id"] != req.case_id:
                 raise HTTPException(status_code=404, detail="Evidence not found")
 
         conn.execute(
@@ -90,6 +91,8 @@ async def list_forensic_reports(
     params = []
 
     if case_id:
+        with get_db() as conn:
+            check_case_access(conn, case_id, current_user)
         conds.append("fr.case_id = ?")
         params.append(case_id)
     if report_type:
@@ -130,6 +133,8 @@ async def get_forensic_report(
 
     if not row:
         raise HTTPException(status_code=404, detail="Forensic report not found")
+    with get_db() as conn:
+        check_case_access(conn, dict(row)["case_id"], current_user)
 
     return dict(row)
 
@@ -147,6 +152,7 @@ async def update_forensic_report(
         row = conn.execute("SELECT * FROM forensic_reports WHERE id = ?", (report_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Forensic report not found")
+        check_case_access(conn, dict(row)["case_id"], current_user)
 
         updates = []
         params = []

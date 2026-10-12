@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from api.access import check_case_access
 from api.database import get_db, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user
 from services.rbac import Permission
@@ -48,9 +49,7 @@ async def create_evidence(
     now = now_iso()
 
     with get_db() as conn:
-        case = conn.execute("SELECT id FROM cases WHERE id = ?", (req.case_id,)).fetchone()
-        if not case:
-            raise HTTPException(status_code=404, detail="Case not found")
+        check_case_access(conn, req.case_id, current_user)
 
         conn.execute(
             """INSERT INTO evidence (id, case_id, evidence_type, description, source,
@@ -92,6 +91,8 @@ async def list_evidence(
     params = []
 
     if case_id:
+        with get_db() as conn:
+            check_case_access(conn, case_id, current_user)
         conds.append("e.case_id = ?")
         params.append(case_id)
     if evidence_type:
@@ -132,6 +133,7 @@ async def get_evidence(
 
         if not row:
             raise HTTPException(status_code=404, detail="Evidence not found")
+        check_case_access(conn, dict(row)["case_id"], current_user)
 
         # Get transfer history (chain of custody)
         transfers = conn.execute(
@@ -162,6 +164,7 @@ async def update_evidence(
         row = conn.execute("SELECT * FROM evidence WHERE id = ?", (evidence_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Evidence not found")
+        check_case_access(conn, dict(row)["case_id"], current_user)
 
         updates = []
         params = []
@@ -204,6 +207,7 @@ async def transfer_evidence(
         evidence = conn.execute("SELECT * FROM evidence WHERE id = ?", (evidence_id,)).fetchone()
         if not evidence:
             raise HTTPException(status_code=404, detail="Evidence not found")
+        check_case_access(conn, dict(evidence)["case_id"], current_user)
 
         to_user = conn.execute("SELECT id, full_name FROM users WHERE id = ?", (req.to_user_id,)).fetchone()
         if not to_user:
