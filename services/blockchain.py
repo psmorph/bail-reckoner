@@ -31,8 +31,8 @@ def _mine_block(block_index: int, previous_hash: str, timestamp: str,
         if block_hash.startswith(prefix):
             return nonce, block_hash
         nonce += 1
-        if nonce > 1_000_000:  # Safety limit for demo
-            return nonce, block_hash
+        if nonce > 1_000_000:
+            raise RuntimeError("Proof-of-work nonce limit reached; block could not be mined.")
 
 
 def get_chain_length() -> int:
@@ -63,12 +63,16 @@ def register_document(
     Register a document's integrity proof on the blockchain.
     This actually mines a block with proof-of-work.
     """
+    with get_db() as conn:
+        existing = conn.execute("SELECT * FROM blockchain_records WHERE document_id = ? ORDER BY block_index DESC LIMIT 1", (document_id,)).fetchone()
+        if existing and dict(existing)["sha256_hash"] == sha256_hash:
+            return dict(existing)
+
     latest = get_latest_block()
     block_index = (latest["block_index"] + 1) if latest else 0
     previous_hash = latest["block_hash"] if latest else "0" * 64
     timestamp = now_iso()
 
-    # Mine the block (real computation, not faked)
     nonce, block_hash = _mine_block(block_index, previous_hash, timestamp,
                                      sha256_hash, authority)
 
@@ -100,11 +104,7 @@ def register_document(
 
 
 def verify_chain_integrity() -> dict:
-    """
-    Verify the entire blockchain is intact:
-    - Each block's hash is correctly computed
-    - Each block's previous_hash matches the preceding block
-    """
+    """Verify the entire blockchain is intact and contiguous."""
     with get_db() as conn:
         blocks = conn.execute(
             "SELECT * FROM blockchain_records ORDER BY block_index ASC"
@@ -114,10 +114,18 @@ def verify_chain_integrity() -> dict:
         return {"valid": True, "blocks_checked": 0, "violations": []}
 
     violations = []
+    expected_index = 0
     for i, block in enumerate(blocks):
         b = dict(block)
+        if b["block_index"] != expected_index:
+            violations.append({
+                "type": "gap_or_reorder",
+                "expected_index": expected_index,
+                "actual_index": b["block_index"],
+                "block_id": b["id"],
+            })
+        expected_index += 1
 
-        # Verify block hash
         computed = _compute_block_hash(
             b["block_index"], b["previous_hash"], b["timestamp"],
             b["sha256_hash"], b["authority"], b["nonce"],
@@ -130,7 +138,6 @@ def verify_chain_integrity() -> dict:
                 "computed": computed,
             })
 
-        # Verify chain linkage (skip genesis block)
         if i > 0:
             prev = dict(blocks[i - 1])
             if b["previous_hash"] != prev["block_hash"]:

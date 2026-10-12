@@ -30,6 +30,7 @@ def get_connection() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 
@@ -37,6 +38,21 @@ def get_connection() -> sqlite3.Connection:
 def get_db():
     """Context manager yielding a database connection with auto-commit."""
     conn = get_connection()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+@contextmanager
+def get_db_immediate():
+    """Connection for transactions requiring BEGIN IMMEDIATE semantics."""
+    conn = get_connection()
+    conn.execute("BEGIN IMMEDIATE")
     try:
         yield conn
         conn.commit()
@@ -365,6 +381,7 @@ CREATE TABLE IF NOT EXISTS key_rotation_logs (
 );
 
 -- Indexes for performance
+CREATE UNIQUE INDEX IF NOT EXISTS idx_blockchain_block_index ON blockchain_records(block_index);
 CREATE INDEX IF NOT EXISTS idx_documents_case ON documents(case_id);
 CREATE INDEX IF NOT EXISTS idx_documents_uploader ON documents(uploaded_by);
 CREATE INDEX IF NOT EXISTS idx_evidence_case ON evidence(case_id);
@@ -391,7 +408,11 @@ CREATE INDEX IF NOT EXISTS idx_signatures_signer ON digital_signatures(signer_id
 def init_platform_tables():
     """Create all platform tables if they don't exist. Fully additive."""
     with get_db() as conn:
-        conn.executescript(PLATFORM_SCHEMA)
+        try:
+            conn.executescript(PLATFORM_SCHEMA)
+        except sqlite3.IntegrityError as exc:
+            print("[DB] Duplicate blockchain index creation failed; investigate existing data before continuing.")
+            raise RuntimeError("Database schema initialization failed: duplicate blockchain block_index values were found. Clean or archive conflicting rows before retrying.") from exc
     print("[DB] Platform tables initialized.")
 
 

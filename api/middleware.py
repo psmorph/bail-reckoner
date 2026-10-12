@@ -5,6 +5,7 @@ JWT token creation/validation + FastAPI dependency for protected routes.
 from __future__ import annotations
 
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -14,15 +15,39 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from api.database import get_db
 from services.rbac import Permission, has_permission
 
-# ── JWT Configuration ────────────────────────────────────────────────────
-
 _bearer_scheme = HTTPBearer(auto_error=False)
 
+DEV_DEFAULT_SECRET = "dev-secret-change-in-production-please"
+
+
+def validate_jwt_secret() -> str:
+    """Validate that the JWT secret is present and strong enough for startup."""
+    app_env = os.getenv("APP_ENV", "development").lower()
+    secret = os.getenv("JWT_SECRET_KEY")
+
+    if secret:
+        if len(secret) < 32:
+            raise RuntimeError("JWT_SECRET_KEY must be at least 32 characters long.")
+        if secret == DEV_DEFAULT_SECRET:
+            raise RuntimeError("JWT_SECRET_KEY must not be the development default value.")
+        return secret
+
+    if app_env == "development":
+        secret = secrets.token_urlsafe(32)
+        os.environ["JWT_SECRET_KEY"] = secret
+        print("WARNING: JWT_SECRET_KEY was missing in development mode; a per-process secret was generated.")
+        return secret
+
+    raise RuntimeError("JWT_SECRET_KEY is required in production. Set it in the environment or .env file.")
+
+
 def _get_secret() -> str:
-    return os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production-please")
+    return validate_jwt_secret()
+
 
 def _get_algorithm() -> str:
     return os.getenv("JWT_ALGORITHM", "HS256")
+
 
 def _get_expire_minutes() -> int:
     return int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
@@ -51,8 +76,6 @@ def decode_token(token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
-# ── User Context ─────────────────────────────────────────────────────────
-
 class CurrentUser:
     """Represents the authenticated user extracted from JWT."""
 
@@ -76,16 +99,11 @@ class CurrentUser:
             )
 
 
-# ── FastAPI Dependencies ─────────────────────────────────────────────────
-
 async def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
 ) -> CurrentUser:
-    """
-    FastAPI dependency that extracts and validates the current user from JWT.
-    Use: current_user: CurrentUser = Depends(get_current_user)
-    """
+    """FastAPI dependency that extracts and validates the current user from JWT."""
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -98,7 +116,6 @@ async def get_current_user(
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
 
-    # Look up user in database
     with get_db() as conn:
         user = conn.execute(
             "SELECT id, email, role_id, full_name, organization_id, is_active FROM users WHERE id = ?",
@@ -124,10 +141,7 @@ async def get_optional_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
 ) -> Optional[CurrentUser]:
-    """
-    Like get_current_user but returns None instead of 401 if no token is present.
-    Useful for routes that work differently when authenticated.
-    """
+    """Return None if the user is not authenticated."""
     if not credentials:
         return None
     try:
@@ -137,10 +151,7 @@ async def get_optional_user(
 
 
 def require_permission(permission: str | Permission):
-    """
-    Factory for a FastAPI dependency that checks a specific permission.
-    Usage: router.get("/...", dependencies=[Depends(require_permission(Permission.CASE_CREATE))])
-    """
+    """Factory for a FastAPI dependency that checks a specific permission."""
     async def _check(current_user: CurrentUser = Depends(get_current_user)):
         current_user.require_permission(permission)
         return current_user

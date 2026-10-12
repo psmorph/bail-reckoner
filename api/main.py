@@ -5,19 +5,22 @@ Extended with platform authentication and security modules.
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 import sys
+from contextlib import asynccontextmanager
 from io import BytesIO
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pypdf import PdfReader
+from starlette.concurrency import run_in_threadpool
 
 # ---------------------------------------------------------------------------
 # Environment — load .env before anything else
@@ -34,6 +37,9 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from engine import custody_days, search_cases, rule_assessment, database_stats
+from api.database import get_db
+from api.middleware import CurrentUser, get_current_user, validate_jwt_secret
+from services.crypto import get_fernet
 
 DB_PATH = ROOT / "bail_reckoner.db"
 FRONTEND = ROOT / "frontend"
@@ -44,6 +50,16 @@ FRONTEND = ROOT / "frontend"
 from api.database import init_platform_tables
 init_platform_tables()
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    try:
+        validate_jwt_secret()
+        get_fernet()
+    except Exception as exc:
+        raise RuntimeError(f"Startup validation failed: {exc}") from exc
+    yield
+
+
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
@@ -51,15 +67,27 @@ app = FastAPI(
     title="NyaySetu API",
     description="AI-assisted legal intelligence and bail assessment platform",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+if origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+@app.middleware("http")
+async def security_headers_middleware(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
 
 # ---------------------------------------------------------------------------
 # Mount platform routers (new modules — does NOT affect existing routes)
@@ -110,6 +138,11 @@ async def serve_favicon():
     return FileResponse(FRONTEND / "index.html")
 
 
+@app.get("/api/config")
+async def get_config():
+    return {"demo": os.getenv("APP_ENV", "production").lower() == "development"}
+
+
 # ===== Pydantic Models =====================================================
 
 class CaseReviewRequest(BaseModel):
@@ -136,7 +169,7 @@ class CustodyCalcRequest(BaseModel):
 # ---- Case Review (main workflow) ------------------------------------------
 
 @app.post("/api/case/extract-text")
-async def extract_case_document(file: UploadFile = File(...)):
+async def extract_case_document(file: UploadFile = File(...), current_user: CurrentUser = Depends(get_current_user)):
     """Extract selectable text from a PDF without adding it to the app's case library."""
     filename = (file.filename or "").lower()
     if not filename.endswith(".pdf"):
@@ -201,7 +234,7 @@ async def extract_case_document(file: UploadFile = File(...)):
     }
 
 @app.post("/api/case/review")
-async def review_case(req: CaseReviewRequest):
+async def review_case(req: CaseReviewRequest, current_user: CurrentUser = Depends(get_current_user)):
     """
     Core endpoint: performs rule-based assessment + retrieves similar judgments.
     Wraps engine.rule_assessment() and engine.search_cases().
@@ -245,7 +278,8 @@ async def search_judgments(
     bail_type: str = "All",
     bail_outcome: str = "All",
     year: str = "",
-    top_k: int = 10,
+    top_k: int = Query(10, ge=1, le=20),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Search similar judgments with optional filters."""
     if not query.strip():
@@ -265,7 +299,7 @@ async def search_judgments(
 # ---- Custody Calculator ----------------------------------------------------
 
 @app.post("/api/custody/calculate")
-async def calculate_custody(req: CustodyCalcRequest):
+async def calculate_custody(req: CustodyCalcRequest, current_user: CurrentUser = Depends(get_current_user)):
     """Calculate custody duration in days."""
     try:
         days = custody_days(req.arrest_date, req.calculation_date)
@@ -288,7 +322,8 @@ async def get_provisions(
     act: str = "",
     category: str = "",
     bailable: str = "",
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=200),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Query the offenses and special-acts tables in the legal database."""
     if not DB_PATH.exists():
@@ -344,7 +379,7 @@ async def get_provisions(
 
 
 @app.get("/api/provisions/categories")
-async def get_provision_categories():
+async def get_provision_categories(current_user: CurrentUser = Depends(get_current_user)):
     """Return distinct categories and acts for filter dropdowns."""
     if not DB_PATH.exists():
         return {"categories": [], "acts": []}
@@ -357,7 +392,7 @@ async def get_provision_categories():
 # ---- Custody Rules ---------------------------------------------------------
 
 @app.get("/api/custody-rules")
-async def get_custody_rules():
+async def get_custody_rules(current_user: CurrentUser = Depends(get_current_user)):
     """Return statutory custody threshold rules."""
     if not DB_PATH.exists():
         return {"rules": []}
@@ -375,6 +410,7 @@ async def get_custody_rules():
 async def get_checklist(
     category: str = "",
     bail_type: str = "",
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Return the procedural checklist for bail applications."""
     if not DB_PATH.exists():
@@ -405,6 +441,7 @@ async def get_judgments(
     search: str = "",
     court: str = "",
     category: str = "",
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Return landmark judgments from the seed database."""
     if not DB_PATH.exists():
@@ -434,6 +471,6 @@ async def get_judgments(
 # ---- Database Stats --------------------------------------------------------
 
 @app.get("/api/stats")
-async def get_stats():
+async def get_stats(current_user: CurrentUser = Depends(get_current_user)):
     """Aggregate database statistics."""
     return database_stats()

@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import hashlib
 import os
+from functools import lru_cache
 from pathlib import Path
+
+DEFAULT_FERNET_KEY = "change-me-generate-a-fernet-key"
 
 
 def sha256_hash_bytes(data: bytes) -> str:
@@ -23,15 +26,30 @@ def sha256_hash_file(file_path: str | Path) -> str:
     return h.hexdigest()
 
 
+@lru_cache(maxsize=1)
 def get_fernet():
-    """Get a Fernet cipher using the key from environment variables."""
+    """Get a valid Fernet cipher using the configured environment key."""
     from cryptography.fernet import Fernet
-    key = os.getenv("DOCUMENT_ENCRYPTION_KEY", "")
-    if not key or key == "change-me-generate-a-fernet-key":
-        # Generate a key for development if not configured
-        key = Fernet.generate_key().decode()
-        os.environ["DOCUMENT_ENCRYPTION_KEY"] = key
-    return Fernet(key.encode() if isinstance(key, str) else key)
+
+    key = os.getenv("DOCUMENT_ENCRYPTION_KEY")
+    app_env = os.getenv("APP_ENV", "development").lower()
+    dev_key_path = Path(__file__).resolve().parent.parent / ".dev_fernet_key"
+
+    if not key or key == DEFAULT_FERNET_KEY:
+        if app_env == "development":
+            if dev_key_path.exists():
+                key = dev_key_path.read_text(encoding="utf-8").strip()
+            else:
+                key = Fernet.generate_key().decode()
+                dev_key_path.write_text(key, encoding="utf-8")
+                print("WARNING: DOCUMENT_ENCRYPTION_KEY missing; using a development-only key stored at .dev_fernet_key")
+        else:
+            raise RuntimeError("DOCUMENT_ENCRYPTION_KEY is required and must be a valid Fernet key.")
+
+    try:
+        return Fernet(key.encode() if isinstance(key, str) else key)
+    except Exception as exc:
+        raise RuntimeError("DOCUMENT_ENCRYPTION_KEY is not a valid Fernet key.") from exc
 
 
 def encrypt_bytes(data: bytes) -> bytes:

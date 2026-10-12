@@ -39,6 +39,7 @@ class Permission(str, Enum):
     # Evidence
     EVIDENCE_CREATE = "evidence:create"
     EVIDENCE_READ = "evidence:read"
+    EVIDENCE_UPDATE = "evidence:update"
     EVIDENCE_TRANSFER = "evidence:transfer"
 
     # Investigation
@@ -80,8 +81,10 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         Permission.CASE_CREATE, Permission.CASE_READ, Permission.CASE_UPDATE,
         Permission.CASE_SEARCH, Permission.CASE_TRANSFER,
         Permission.DOC_UPLOAD, Permission.DOC_READ, Permission.DOC_DOWNLOAD, Permission.DOC_VERIFY,
-        Permission.EVIDENCE_CREATE, Permission.EVIDENCE_READ, Permission.EVIDENCE_TRANSFER,
+        Permission.EVIDENCE_CREATE, Permission.EVIDENCE_READ, Permission.EVIDENCE_UPDATE, Permission.EVIDENCE_TRANSFER,
         Permission.INVESTIGATION_READ,
+        Permission.FORENSIC_READ,
+        Permission.COURT_READ,
         Permission.AUDIT_READ, Permission.BLOCKCHAIN_READ, Permission.BLOCKCHAIN_VERIFY,
         Permission.NOTIFICATION_READ,
         Permission.USER_READ, Permission.USER_CREATE, Permission.USER_UPDATE,
@@ -91,7 +94,9 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         Permission.CASE_CREATE, Permission.CASE_READ, Permission.CASE_UPDATE,
         Permission.CASE_SEARCH,
         Permission.DOC_UPLOAD, Permission.DOC_READ, Permission.DOC_DOWNLOAD, Permission.DOC_VERIFY,
-        Permission.EVIDENCE_CREATE, Permission.EVIDENCE_READ,
+        Permission.EVIDENCE_CREATE, Permission.EVIDENCE_READ, Permission.EVIDENCE_UPDATE, Permission.EVIDENCE_TRANSFER,
+        Permission.FORENSIC_READ,
+        Permission.COURT_READ,
         Permission.NOTIFICATION_READ,
         Permission.BLOCKCHAIN_READ, Permission.BLOCKCHAIN_VERIFY,
     ],
@@ -99,8 +104,10 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
     "investigator": [
         Permission.CASE_READ, Permission.CASE_SEARCH,
         Permission.DOC_UPLOAD, Permission.DOC_READ, Permission.DOC_DOWNLOAD, Permission.DOC_VERIFY,
-        Permission.EVIDENCE_CREATE, Permission.EVIDENCE_READ, Permission.EVIDENCE_TRANSFER,
+        Permission.EVIDENCE_CREATE, Permission.EVIDENCE_READ, Permission.EVIDENCE_UPDATE, Permission.EVIDENCE_TRANSFER,
         Permission.INVESTIGATION_CREATE, Permission.INVESTIGATION_READ, Permission.INVESTIGATION_UPDATE,
+        Permission.FORENSIC_READ,
+        Permission.COURT_READ,
         Permission.NOTIFICATION_READ,
         Permission.BLOCKCHAIN_READ, Permission.BLOCKCHAIN_VERIFY,
     ],
@@ -133,7 +140,7 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         Permission.EVIDENCE_READ,
         Permission.INVESTIGATION_READ,
         Permission.FORENSIC_READ,
-        Permission.COURT_CREATE, Permission.COURT_READ,
+        Permission.COURT_CREATE, Permission.COURT_READ, Permission.COURT_UPDATE,
         Permission.BAIL_ANALYZE, Permission.BAIL_READ,
         Permission.BLOCKCHAIN_READ, Permission.BLOCKCHAIN_VERIFY,
         Permission.NOTIFICATION_READ,
@@ -148,6 +155,10 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         Permission.NOTIFICATION_READ,
         Permission.SYSTEM_AUDIT,
     ],
+
+    "viewer": [
+        Permission.NOTIFICATION_READ,
+    ],
 }
 
 ROLE_HIERARCHY: dict[str, int] = {
@@ -159,6 +170,7 @@ ROLE_HIERARCHY: dict[str, int] = {
     "forensic_officer": 50,
     "court_officer": 50,
     "auditor": 40,
+    "viewer": 10,
 }
 
 
@@ -195,5 +207,6 @@ def get_role_display_name(role_id: str) -> str:
         "court_admin": "Court Admin",
         "court_officer": "Court Officer",
         "auditor": "Auditor",
+        "viewer": "Viewer",
     }
     return names.get(role_id, role_id.replace("_", " ").title())

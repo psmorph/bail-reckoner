@@ -14,6 +14,7 @@ env/
 
 # Environment secrets
 .env
+.dev_fernet_key
 
 # Database
 *.db

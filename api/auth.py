@@ -5,6 +5,7 @@ Login, registration, token refresh, and user profile endpoints.
 from __future__ import annotations
 
 import json
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -16,9 +17,10 @@ from api.middleware import (
     create_access_token,
     get_client_ip,
     get_current_user,
+    get_optional_user,
 )
-from services.audit import log_auth_event
-from services.rbac import get_role_display_name, get_role_permissions
+from services.audit import log_auth_event, log_event
+from services.rbac import Permission, can_manage_role, get_role_display_name, get_role_permissions
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -45,7 +47,7 @@ class LoginRequest(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
     full_name: str
     phone: str = ""
@@ -137,42 +139,90 @@ async def login(req: LoginRequest, request: Request):
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(req: RegisterRequest, request: Request):
+async def register(req: RegisterRequest, request: Request, current_user: Optional[CurrentUser] = Depends(get_optional_user)):
     """Register a new user account."""
     ip = get_client_ip(request)
+    allow_public = str(os.getenv("ALLOW_PUBLIC_REGISTRATION", "false")).lower() == "true"
 
-    # Validate role exists
-    from services.rbac import ROLE_PERMISSIONS
-    if req.role_id not in ROLE_PERMISSIONS:
-        raise HTTPException(status_code=400, detail=f"Invalid role: {req.role_id}")
+    if not allow_public and current_user is None:
+        log_event("user_create_denied", user_id="", user_email=str(req.email), ip_address=ip,
+                  result="failure", severity="warning", metadata=json.dumps({"reason": "unauthenticated"}))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+
+    if current_user is not None:
+        current_user.require_permission(Permission.USER_CREATE)
+
+    if allow_public and current_user is None:
+        role_id = "viewer"
+        organization_id = ""
+    else:
+        role_id = req.role_id
+        organization_id = req.organization_id or ""
+
+    if role_id == "master_admin":
+        log_event("user_create_denied", user_id=current_user.id if current_user else "", user_email=str(req.email),
+                  ip_address=ip, result="failure", severity="warning", metadata=json.dumps({"reason": "master_admin_not_allowed"}))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="master_admin cannot be created via API")
+
+    if role_id not in set(__import__('services.rbac', fromlist=['ROLE_PERMISSIONS']).ROLE_PERMISSIONS):
+        log_event("user_create_denied", user_id=current_user.id if current_user else "", user_email=str(req.email),
+                  ip_address=ip, result="failure", severity="warning", metadata=json.dumps({"reason": "invalid_role", "role_id": role_id}))
+        raise HTTPException(status_code=400, detail=f"Invalid role: {role_id}")
+
+    if current_user is not None and current_user.role_id != "master_admin":
+        if not can_manage_role(current_user.role_id, role_id):
+            log_event("user_create_denied", user_id=current_user.id, user_email=str(req.email), ip_address=ip,
+                      result="failure", severity="warning", metadata=json.dumps({"reason": "role_not_allowed", "requested": role_id, "caller": current_user.role_id}))
+            raise HTTPException(status_code=403, detail="You do not have permission to create this role")
+        if organization_id and organization_id != current_user.organization_id:
+            log_event("user_create_denied", user_id=current_user.id, user_email=str(req.email), ip_address=ip,
+                      result="failure", severity="warning", metadata=json.dumps({"reason": "org_mismatch", "requested_org": organization_id, "caller_org": current_user.organization_id}))
+            raise HTTPException(status_code=403, detail="You may only create users in your own organization")
+
+    if not req.password or len(req.password) < 12 or not any(ch.isalpha() for ch in req.password) or not any(ch.isdigit() for ch in req.password):
+        log_event("user_create_denied", user_id=current_user.id if current_user else "", user_email=str(req.email),
+                  ip_address=ip, result="failure", severity="warning", metadata=json.dumps({"reason": "weak_password"}))
+        raise HTTPException(status_code=400, detail="Password must be at least 12 characters and contain both letters and digits")
+
+    if organization_id:
+        with get_db() as conn:
+            org_exists = conn.execute("SELECT id FROM organizations WHERE id = ?", (organization_id,)).fetchone()
+            if not org_exists:
+                log_event("user_create_denied", user_id=current_user.id if current_user else "", user_email=str(req.email),
+                          ip_address=ip, result="failure", severity="warning", metadata=json.dumps({"reason": "unknown_org", "org_id": organization_id}))
+                raise HTTPException(status_code=404, detail="Organization not found")
 
     with get_db() as conn:
-        existing = conn.execute("SELECT id FROM users WHERE email = ?", (req.email,)).fetchone()
+        existing = conn.execute("SELECT id FROM users WHERE email = ?", (str(req.email),)).fetchone()
         if existing:
-            raise HTTPException(status_code=400, detail="Email already registered")
+            log_event("user_create_denied", user_id=current_user.id if current_user else "", user_email=str(req.email),
+                      ip_address=ip, result="failure", severity="warning", metadata=json.dumps({"reason": "duplicate_email"}))
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
     user_id = generate_id("USR-")
     password_hash = _hash_password(req.password)
 
     with get_db() as conn:
-        # Ensure role exists in roles table
-        role_exists = conn.execute("SELECT id FROM roles WHERE id = ?", (req.role_id,)).fetchone()
+        role_exists = conn.execute("SELECT id FROM roles WHERE id = ?", (role_id,)).fetchone()
         if not role_exists:
             conn.execute(
                 "INSERT INTO roles (id, name, description, permissions, hierarchy_level) VALUES (?, ?, ?, ?, ?)",
-                (req.role_id, get_role_display_name(req.role_id), "",
-                 json.dumps(get_role_permissions(req.role_id)), 0),
+                (role_id, get_role_display_name(role_id), "",
+                 json.dumps(get_role_permissions(role_id)), 0),
             )
 
         conn.execute(
             """INSERT INTO users (id, email, phone, password_hash, full_name, role_id,
                organization_id, is_active, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
-            (user_id, req.email, req.phone, password_hash, req.full_name,
-             req.role_id, req.organization_id or None, now_iso(), now_iso()),
+            (user_id, str(req.email), req.phone, password_hash, req.full_name,
+             role_id, organization_id or None, now_iso(), now_iso()),
         )
 
-    log_auth_event("user_registered", user_id=user_id, email=req.email, ip=ip)
+    log_event("user_created", user_id=user_id, user_email=str(req.email), user_role=role_id,
+              entity_type="user", entity_id=user_id, ip_address=ip, result="success", severity="info",
+              metadata=json.dumps({"role_id": role_id, "organization_id": organization_id}))
+    log_auth_event("user_registered", user_id=user_id, email=str(req.email), ip=ip)
 
     return {"message": "Account created successfully", "user_id": user_id}
 

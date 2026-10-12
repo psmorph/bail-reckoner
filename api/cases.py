@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
+from api.access import accessible_case_clause, check_case_access
 from api.database import generate_case_id, get_db, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user, get_client_ip
 from services.audit import log_case_event
@@ -65,28 +66,7 @@ def _case_to_dict(row) -> dict:
 
 def _check_case_access(conn, case_id: str, user: CurrentUser) -> dict:
     """Check user has access to a case and return it."""
-    case = conn.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone()
-    if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
-
-    # Master admin and auditor can see all cases
-    if user.role_id in ("master_admin", "auditor"):
-        return dict(case)
-
-    # Users can see cases in their organization or assigned to them
-    case_dict = dict(case)
-    org_match = case_dict.get("organization_id") == user.organization_id
-    creator_match = case_dict.get("created_by") == user.id
-    investigator_match = case_dict.get("assigned_investigator") == user.id
-    forensic_match = case_dict.get("assigned_forensic") == user.id
-
-    # Court users can see cases that have court proceedings or documents they uploaded
-    is_court = user.role_id in ("court_admin", "court_officer")
-
-    if not (org_match or creator_match or investigator_match or forensic_match or is_court):
-        raise HTTPException(status_code=403, detail="Access denied to this case")
-
-    return case_dict
+    return check_case_access(conn, case_id, user)
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────
@@ -148,17 +128,11 @@ async def list_cases(
         params = []
 
         # RBAC filtering
-        if current_user.role_id not in ("master_admin", "auditor"):
-            if current_user.role_id in ("court_admin", "court_officer"):
-                # Court users see all cases (read-only across orgs for judicial review)
-                pass
-            else:
-                # Other users see cases in their org or assigned to them
-                conds.append(
-                    "(c.organization_id = ? OR c.created_by = ? OR c.assigned_investigator = ? OR c.assigned_forensic = ?)"
-                )
-                params.extend([current_user.organization_id, current_user.id,
-                               current_user.id, current_user.id])
+        if current_user.role_id not in ("master_admin", "auditor", "court_admin", "court_officer"):
+            clause, clause_params = accessible_case_clause(current_user)
+            if clause != "1=1":
+                conds.append(f"{clause.replace('c.', 'c.')}")
+                params.extend(clause_params)
 
         if status_filter:
             conds.append("c.status = ?")
