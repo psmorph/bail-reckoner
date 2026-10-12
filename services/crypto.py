@@ -32,7 +32,7 @@ def get_fernet():
     from cryptography.fernet import Fernet
 
     key = os.getenv("DOCUMENT_ENCRYPTION_KEY")
-    app_env = os.getenv("APP_ENV", "production").lower()
+    app_env = os.getenv("APP_ENV", "production")
     dev_key_path = Path(__file__).resolve().parent.parent / ".dev_fernet_key"
     key_value = key.strip() if isinstance(key, str) else ""
 

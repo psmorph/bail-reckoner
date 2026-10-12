@@ -22,7 +22,7 @@ DEV_DEFAULT_SECRET = "dev-secret-change-in-production-please"
 
 def validate_jwt_secret() -> str:
     """Validate that the JWT secret is present and strong enough for startup."""
-    app_env = os.getenv("APP_ENV", "production").lower()
+    app_env = os.getenv("APP_ENV", "production")
     secret = os.getenv("JWT_SECRET_KEY")
     secret_value = secret.strip() if isinstance(secret, str) else ""
 
