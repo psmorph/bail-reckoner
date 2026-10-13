@@ -1,7 +1,7 @@
 /**
  * NyaySetu — Case Timeline Page
  * Connects to real /api/cases/{id}/timeline endpoint.
- * Reads case ID from URL hash or from current case in session.
+ * Reads the case ID from the URL hash or shows a case picker.
  */
 import { navbar, icons, timeline, badge, statCard, showToast, escapeHtml } from '../components.js';
 import { getRole, isAuthenticated } from '../state.js';
@@ -183,10 +183,10 @@ async function showCasePicker() {
                             <div>
                                 <div style="font-weight: 600">${escapeHtml(c.id)}</div>
                                 <div style="font-size: var(--text-sm); color: var(--text-secondary)">${escapeHtml(c.title)}</div>
-                            </button>
+                            </div>
                             <div>${badge(c.status, c.status === 'active' ? 'success' : 'neutral')}</div>
                         </div>
-                    </div>
+                    </button>
                 `).join('')}
             </div>`;
         picker.querySelectorAll('.timeline-case-picker-item').forEach(button => {
@@ -195,7 +195,7 @@ async function showCasePicker() {
             });
         });
     } catch (err) {
-        picker.innerHTML = `<div style="color: var(--text-secondary)">${escapeHtml(err.message)}</div>`;
+        picker.innerHTML = `<div style="color: var(--text-secondary)">${err.status === 404 ? 'Case not found or you do not have access.' : escapeHtml(err.message)}</div>`;
     }
 }
 

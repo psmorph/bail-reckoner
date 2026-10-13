@@ -110,7 +110,7 @@ export async function init() {
             <div style="text-align: center; padding: var(--space-10)">
                 <div style="font-size: 48px; margin-bottom: var(--space-4)">⚠️</div>
                 <h3>${err.status === 404 ? 'Case not found or you do not have access' : 'Unable to load case'}</h3>
-                        <p style="color: var(--text-secondary); margin-top: var(--space-2)">${escapeHtml(err.message)}</p>
+                        <p style="color: var(--text-secondary); margin-top: var(--space-2)">${err.status === 404 ? 'The case may not exist or you may not have access.' : escapeHtml(err.message)}</p>
                 <button class="btn btn-primary" style="margin-top: var(--space-4)" data-navigate="/case-search">Back to Cases</button>
             </div>`;
     }
@@ -275,7 +275,7 @@ function initDocumentHandlers() {
                 caseData = await api.getCase(getCaseId());
                 renderTabContent();
             } catch (err) {
-                showToast('Verification failed: ' + err.message, 'danger');
+                showToast(err.status === 404 ? 'Document not found or you do not have access.' : 'Verification failed: ' + err.message, 'danger');
                 btn.innerHTML = icons.lock;
             }
         });
@@ -310,7 +310,7 @@ function initDocumentHandlers() {
                 URL.revokeObjectURL(url);
                 showToast('Document downloaded', 'success');
             } catch (err) {
-                showToast('Download failed: ' + err.message, 'danger');
+                showToast(err.status === 404 ? 'Document not found or you do not have access.' : 'Download failed: ' + err.message, 'danger');
             }
         });
     });
@@ -579,7 +579,7 @@ function showUploadModal() {
             renderCaseHeader();
             renderTabContent();
         } catch (err) {
-            errorDiv.textContent = err.message;
+            errorDiv.textContent = err.status === 404 ? 'Case not found or you do not have access.' : err.message;
             errorDiv.style.display = 'block';
             btn.innerHTML = `${icons.upload} Upload & Encrypt`;
             btn.disabled = false;

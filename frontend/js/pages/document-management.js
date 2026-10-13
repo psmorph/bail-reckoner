@@ -162,7 +162,7 @@ function renderDocList() {
                 showToast(`Document verification: ${result.integrity_status || 'verified'} ${result.hash_match ? '✅' : '⚠️'}`, result.hash_match ? 'success' : 'warning');
                 await loadDocuments();
             } catch (err) {
-                showToast('Verification failed: ' + err.message, 'error');
+                showToast(err.status === 404 ? 'Document not found or you do not have access.' : 'Verification failed: ' + err.message, 'error');
                 btn.innerHTML = `${icons.shield} Verify`;
                 btn.disabled = false;
             }
@@ -202,7 +202,7 @@ function renderDocList() {
                 URL.revokeObjectURL(url);
                 showToast('Download started', 'success');
             } catch (err) {
-                showToast('Download failed: ' + err.message, 'error');
+                showToast(err.status === 404 ? 'Document not found or you do not have access.' : 'Download failed: ' + err.message, 'error');
             }
         });
     });
@@ -343,7 +343,7 @@ function showUploadModal() {
             modal.remove();
             await loadDocuments();
         } catch (err) {
-            errorDiv.textContent = err.message;
+            errorDiv.textContent = err.status === 404 ? 'Case not found or you do not have access.' : err.message;
             errorDiv.style.display = 'block';
             btn.innerHTML = `${icons.upload} Upload & Encrypt`;
             btn.disabled = false;
