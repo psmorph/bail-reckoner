@@ -201,6 +201,8 @@ def test_unfiltered_lists_only_return_accessible_cases(monkeypatch, isolated_db)
 
 
 def test_registration_requires_role_management_permission(client, login_as):
+    from api.database import get_db
+
     request_body = {
         "email": "created-user@example.com",
         "password": "StrongPassword123",
@@ -247,6 +249,18 @@ def test_registration_requires_role_management_permission(client, login_as):
         json={**same_org_body, "email": "weak-password@example.com", "password": "short"},
     )
     assert weak_password.status_code == 400
+
+    with get_db() as conn:
+        created_audit = conn.execute(
+            "SELECT 1 FROM audit_logs WHERE action = 'user_created' AND user_email = ?",
+            ("same-org-viewer@example.com",),
+        ).fetchone()
+        denied_audit = conn.execute(
+            "SELECT 1 FROM audit_logs WHERE action = 'user_create_denied' AND user_email = ? AND result = 'failure'",
+            ("created-user@example.com",),
+        ).fetchone()
+    assert created_audit
+    assert denied_audit
 
 
 def test_database_routes_require_authentication(client):
