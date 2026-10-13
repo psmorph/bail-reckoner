@@ -23,6 +23,7 @@ def test_jwt_secret_is_required_in_production(monkeypatch):
 def test_fernet_key_is_required_in_production(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.delenv("DOCUMENT_ENCRYPTION_KEY", raising=False)
+    get_fernet.cache_clear()
     with pytest.raises(RuntimeError, match="DOCUMENT_ENCRYPTION_KEY is required"):
         get_fernet()
 
@@ -295,15 +296,23 @@ def test_registration_requires_role_management_permission(client, login_as):
     assert denied_audit
 
 
-def test_database_routes_require_authentication(client):
-    for endpoint in (
-        "/api/provisions",
-        "/api/provisions/categories",
-        "/api/custody-rules",
-        "/api/checklist",
-        "/api/judgments",
-    ):
-        response = client.get(endpoint)
+def test_all_a5_routes_require_authentication(client):
+    requests = (
+        ("post", "/api/case/extract-text", {
+            "files": {"file": ("case.pdf", b"%PDF-1.4\n", "application/pdf")},
+        }),
+        ("post", "/api/case/review", {"json": {}}),
+        ("get", "/api/cases/search", {}),
+        ("post", "/api/custody/calculate", {"json": {"arrest_date": "2026-01-01"}}),
+        ("get", "/api/provisions", {}),
+        ("get", "/api/provisions/categories", {}),
+        ("get", "/api/custody-rules", {}),
+        ("get", "/api/checklist", {}),
+        ("get", "/api/judgments", {}),
+        ("get", "/api/stats", {}),
+    )
+    for method, endpoint, kwargs in requests:
+        response = getattr(client, method)(endpoint, **kwargs)
         assert response.status_code == 401, endpoint
 
 
@@ -401,3 +410,33 @@ def test_organization_match_requires_both_ids():
     assert not _org_matches("org-a", "")
     assert not _org_matches("", "org-a")
     assert _org_matches("org-a", "org-a")
+
+
+def test_orgless_user_cannot_access_orgless_case(monkeypatch, isolated_db):
+    from fastapi import HTTPException
+
+    from api.access import check_case_access
+    from api.database import get_db, init_platform_tables
+    from api.middleware import CurrentUser
+
+    init_platform_tables()
+    with get_db() as conn:
+        conn.execute("INSERT INTO roles (id, name) VALUES ('police_officer', 'Police Officer')")
+        conn.executemany(
+            """INSERT INTO users (id, email, password_hash, full_name, role_id, organization_id)
+               VALUES (?, ?, 'hash', ?, 'police_officer', NULL)""",
+            [
+                ("unrelated-user", "unrelated@example.test", "Unrelated"),
+                ("case-owner", "owner@example.test", "Case Owner"),
+            ],
+        )
+        conn.execute(
+            """INSERT INTO cases (id, title, created_by, organization_id)
+               VALUES ('orgless-case', 'Organization-less case', 'case-owner', NULL)"""
+        )
+
+    user = CurrentUser("unrelated-user", "unrelated@example.test", "police_officer", "Unrelated")
+    with get_db() as conn:
+        with pytest.raises(HTTPException) as error:
+            check_case_access(conn, "orgless-case", user)
+    assert error.value.status_code == 404

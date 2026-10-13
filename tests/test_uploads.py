@@ -1,4 +1,6 @@
 import sqlite3
+import importlib
+import os
 from contextlib import contextmanager
 
 import pytest
@@ -115,3 +117,41 @@ def test_malware_scanner_error_fails_closed_and_is_audited(monkeypatch, client, 
         ).fetchone()
     assert event["severity"] == "critical"
     assert event["result"] == "failure"
+
+
+def test_encrypted_document_survives_app_restart_with_same_key(monkeypatch, tmp_path, client, login_as):
+    from fastapi.testclient import TestClient
+
+    from api.database import get_db
+    from services.crypto import get_fernet
+
+    encryption_key = os.environ["DOCUMENT_ENCRYPTION_KEY"]
+    monkeypatch.setenv("SECURE_VAULT_PATH", str(tmp_path / "restart-vault"))
+    get_fernet.cache_clear()
+    expected = b"encrypted file persisted across restart"
+    uploaded = _upload(
+        client,
+        login_as("si.sharma@police.dl.in"),
+        "restart-proof.txt",
+        expected,
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    document_id = uploaded.json()["document_id"]
+    with get_db() as conn:
+        document = conn.execute(
+            "SELECT file_name FROM documents WHERE id = ?",
+            (document_id,),
+        ).fetchone()
+    assert (tmp_path / "restart-vault" / f"{document['file_name']}.enc").exists()
+
+    get_fernet.cache_clear()
+    import api.main as main_module
+    restarted_main = importlib.reload(main_module)
+    assert os.environ["DOCUMENT_ENCRYPTION_KEY"] == encryption_key
+    with TestClient(restarted_main.app) as restarted_client:
+        downloaded = restarted_client.get(
+            f"/api/documents/{document_id}/download",
+            headers=login_as("si.sharma@police.dl.in"),
+        )
+    assert downloaded.status_code == 200
+    assert downloaded.content == expected
