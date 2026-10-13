@@ -51,21 +51,93 @@ From this directory:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+Copy-Item .env.example .env
 python -m pip install -r requirements.txt
 python -m pip install -r requirements-web.txt
+python -m pip install -r requirements-dev.txt
 ```
+
+Replace the placeholder keys in `.env`; do not commit that file. Generate secrets locally:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+### Environment variables
+
+| Variable | Purpose | Default / requirement |
+|----------|---------|-----------------------|
+| `APP_ENV` | Runtime mode; demo login helpers are shown only in `development` | `production` |
+| `JWT_SECRET_KEY` | Signs authentication tokens | Required in production; use a generated secret |
+| `DOCUMENT_ENCRYPTION_KEY` | Encrypts documents in the vault | Required in production; use a Fernet key |
+| `JWT_ALGORITHM` | JWT signing algorithm | `HS256` |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime | `60` |
+| `DATABASE_URL` | SQLite database URL | Project `bail_reckoner.db` |
+| `SECURE_VAULT_PATH` | Encrypted document storage directory | `secure_vault/` |
+| `MAX_UPLOAD_SIZE_MB` | Maximum document upload size | `50` |
+| `ALLOW_PUBLIC_REGISTRATION` | Enables restricted public registration | `false` |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins | Empty (same-origin) |
+| `CLAMAV_HOST` / `CLAMAV_PORT` | ClamAV service used to scan uploads | Host unset; port `3310` |
 
 ## Running the Platform
 
 ### Web Application (FastAPI + Frontend SPA)
 
+For local development only, seed the demo users and sample case, then start the app:
+
 ```powershell
-# Initialize seed data (demo users, roles, sample cases)
+$env:APP_ENV = "development"
 python seed_data.py
 
-# Start the server
 python run_web.py
 # → opens http://localhost:8000
+```
+
+> **Never run `seed_data.py` in production.** It creates demo users with a published shared password and fictional case data. Demo mode must remain disabled in production.
+
+### Create the first production administrator
+
+After setting production secrets and the production `DATABASE_URL` in `.env`, run this one-time command from the repository root. It prompts for the administrator credentials without echoing the password and creates only the master-admin role (if missing) and account:
+
+```powershell
+$bootstrap = @'
+import api.settings
+import json
+from getpass import getpass
+from passlib.context import CryptContext
+from api.database import generate_id, get_db, init_platform_tables, now_iso
+from services.rbac import ROLE_HIERARCHY, ROLE_PERMISSIONS, get_role_display_name
+
+init_platform_tables()
+email = input("Administrator email: ").strip().lower()
+full_name = input("Administrator full name: ").strip()
+password = getpass("Administrator password (12+ characters, letters and digits): ")
+if "@" not in email or not full_name:
+    raise SystemExit("A valid email and full name are required.")
+if len(password) < 12 or not any(ch.isalpha() for ch in password) or not any(ch.isdigit() for ch in password):
+    raise SystemExit("Password must be at least 12 characters and contain letters and digits.")
+password_hash = CryptContext(schemes=["bcrypt"], deprecated="auto").hash(password)
+now = now_iso()
+with get_db() as conn:
+    if conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone():
+        raise SystemExit("That email is already registered.")
+    if not conn.execute("SELECT id FROM roles WHERE id = 'master_admin'").fetchone():
+        conn.execute(
+            "INSERT INTO roles (id, name, description, permissions, hierarchy_level, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("master_admin", get_role_display_name("master_admin"), "Platform administrator",
+             json.dumps(ROLE_PERMISSIONS["master_admin"]), ROLE_HIERARCHY["master_admin"], now),
+        )
+    conn.execute(
+        """INSERT INTO users (id, email, phone, password_hash, full_name, role_id,
+           organization_id, is_active, created_at, updated_at)
+           VALUES (?, ?, '', ?, ?, 'master_admin', NULL, 1, ?, ?)""",
+        (generate_id("USR-"), email, password_hash, full_name, now, now),
+    )
+print(f"Created the first administrator: {email}")
+'@
+python -c $bootstrap
+Remove-Variable bootstrap
 ```
 
 ### Data Pipeline (Research Prototype)
@@ -78,19 +150,21 @@ python ml\evaluate.py data\processed_judgments.csv
 streamlit run app.py
 ```
 
-### Run End-to-End Tests
+### Run Tests
 
 ```powershell
-# Start server in one terminal, then run:
-python test_platform.py
+python -m pytest
+node --experimental-default-type=module frontend\tests\components-xss.test.js
 ```
 
-## Demo Credentials
+## Development Demo Credentials
 
 | Role | Email | Password |
 |------|-------|----------|
 | Master Admin | admin@bailreckoner.in | demo1234 |
 | Police Officer | si.sharma@police.dl.in | demo1234 |
+
+These credentials exist only after running `seed_data.py` in development. Never use them in production.
 
 ## API Endpoints
 

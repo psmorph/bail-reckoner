@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    name: Backend pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements-web.txt -r requirements-dev.txt pypdf
+      - name: Run pytest
+        run: python -m pytest -q
+
+  frontend-xss:
+    name: Frontend component XSS tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run component XSS tests
+        run: node --experimental-default-type=module frontend/tests/components-xss.test.js
