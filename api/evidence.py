@@ -4,13 +4,15 @@ Manage evidence items, chain of custody, and forensic tracking.
 """
 from __future__ import annotations
 
+import json
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.access import accessible_case_clause, check_case_access
-from api.database import get_db, generate_id, now_iso
+from api.database import get_db, get_db_immediate, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user
+from services.audit import log_event
 from services.rbac import Permission
 
 router = APIRouter(prefix="/api/evidence", tags=["Evidence"])
@@ -59,12 +61,16 @@ async def create_evidence(
              current_user.id, req.collection_time or now, req.location, current_user.id, now, now),
         )
 
-        conn.execute(
-            """INSERT INTO audit_logs (id, user_id, user_email, user_role, action, entity_type, entity_id, case_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (generate_id("AUD-"), current_user.id, current_user.email, current_user.role_id,
-             "evidence.created", "evidence", evidence_id, req.case_id, now),
-        )
+    log_event(
+        "evidence.created",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        user_role=current_user.role_id,
+        entity_type="evidence",
+        entity_id=evidence_id,
+        case_id=req.case_id,
+        metadata=json.dumps({"evidence_type": req.evidence_type}),
+    )
 
     return {"message": "Evidence registered successfully", "evidence_id": evidence_id}
 
@@ -202,39 +208,162 @@ async def transfer_evidence(
     req: EvidenceTransferRequest,
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    """Transfer custody of evidence to another user."""
-    current_user.require_permission(Permission.CASE_UPDATE)
-
+    """Request a custody transfer that requires acceptance by the recipient."""
     now = now_iso()
     transfer_id = generate_id("TRF-")
 
-    with get_db() as conn:
+    with get_db_immediate() as conn:
         evidence = conn.execute("SELECT * FROM evidence WHERE id = ?", (evidence_id,)).fetchone()
         if not evidence:
             raise HTTPException(status_code=404, detail="Evidence not found")
-        check_case_access(conn, dict(evidence)["case_id"], current_user)
+        evidence_dict = dict(evidence)
+        case = conn.execute(
+            "SELECT organization_id FROM cases WHERE id = ?",
+            (evidence_dict["case_id"],),
+        ).fetchone()
+        custodian_id = evidence_dict["current_custodian"]
+        is_master_admin = current_user.role_id == "master_admin"
+        is_same_org_police_admin = (
+            current_user.role_id == "police_admin"
+            and bool(current_user.organization_id)
+            and bool(case and case["organization_id"])
+            and current_user.organization_id == case["organization_id"]
+        )
+        if current_user.id != custodian_id and not is_master_admin and not is_same_org_police_admin:
+            raise HTTPException(status_code=403, detail="Only the current custodian or an authorized administrator may initiate a transfer")
 
-        to_user = conn.execute("SELECT id, full_name FROM users WHERE id = ?", (req.to_user_id,)).fetchone()
+        pending = conn.execute(
+            "SELECT id FROM evidence_transfers WHERE evidence_id = ? AND status = 'pending' LIMIT 1",
+            (evidence_id,),
+        ).fetchone()
+        if pending:
+            raise HTTPException(status_code=409, detail="A custody transfer is already pending")
+
+        to_user = conn.execute(
+            "SELECT id, full_name, organization_id, is_active FROM users WHERE id = ?",
+            (req.to_user_id,),
+        ).fetchone()
         if not to_user:
             raise HTTPException(status_code=404, detail="Target user not found")
+        if not to_user["is_active"]:
+            raise HTTPException(status_code=400, detail="Target user is inactive")
+        if req.to_user_id == custodian_id:
+            raise HTTPException(status_code=400, detail="Target user is already the current custodian")
+        if not custodian_id:
+            raise HTTPException(status_code=409, detail="Evidence has no current custodian")
+
+        from_user = conn.execute(
+            "SELECT organization_id FROM users WHERE id = ?",
+            (custodian_id,),
+        ).fetchone()
 
         conn.execute(
-            """INSERT INTO evidence_transfers (id, evidence_id, from_user, to_user, transfer_time, reason, status)
-               VALUES (?, ?, ?, ?, ?, ?, 'completed')""",
-            (transfer_id, evidence_id, current_user.id, req.to_user_id, now, req.reason),
+            """INSERT INTO evidence_transfers
+               (id, evidence_id, from_user, to_user, from_org, to_org, transfer_time, reason, status, acknowledged)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)""",
+            (
+                transfer_id,
+                evidence_id,
+                custodian_id,
+                req.to_user_id,
+                from_user["organization_id"] if from_user else None,
+                to_user["organization_id"],
+                now,
+                req.reason,
+            ),
         )
 
+    log_event(
+        "evidence.transfer_requested",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        user_role=current_user.role_id,
+        entity_type="evidence",
+        entity_id=evidence_id,
+        case_id=evidence_dict["case_id"],
+        metadata=json.dumps({"transfer_id": transfer_id, "to_user": req.to_user_id, "reason": req.reason}),
+    )
+    return {"message": "Evidence transfer requested", "transfer_id": transfer_id, "status": "pending"}
+
+
+@router.post("/transfers/{transfer_id}/acknowledge")
+async def acknowledge_evidence_transfer(
+    transfer_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Accept a pending custody transfer addressed to the current user."""
+    now = now_iso()
+
+    with get_db_immediate() as conn:
+        transfer = conn.execute(
+            """SELECT et.*, e.case_id FROM evidence_transfers et
+               JOIN evidence e ON e.id = et.evidence_id WHERE et.id = ?""",
+            (transfer_id,),
+        ).fetchone()
+        if not transfer:
+            raise HTTPException(status_code=404, detail="Transfer not found")
+        transfer_dict = dict(transfer)
+        if transfer_dict["to_user"] != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the recipient may acknowledge this transfer")
+        if transfer_dict["status"] != "pending":
+            raise HTTPException(status_code=409, detail="Transfer is no longer pending")
+
+        conn.execute(
+            """UPDATE evidence_transfers
+               SET acknowledged = 1, acknowledged_at = ?, status = 'completed'
+               WHERE id = ? AND status = 'pending'""",
+            (now, transfer_id),
+        )
         conn.execute(
             "UPDATE evidence SET current_custodian = ?, updated_at = ? WHERE id = ?",
-            (req.to_user_id, now, evidence_id),
+            (current_user.id, now, transfer_dict["evidence_id"]),
         )
 
+    log_event(
+        "evidence.transfer_acknowledged",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        user_role=current_user.role_id,
+        entity_type="evidence",
+        entity_id=transfer_dict["evidence_id"],
+        case_id=transfer_dict["case_id"],
+        metadata=json.dumps({"transfer_id": transfer_id, "from_user": transfer_dict["from_user"]}),
+    )
+    return {"message": "Evidence transfer acknowledged", "transfer_id": transfer_id, "status": "completed"}
+
+
+@router.post("/transfers/{transfer_id}/reject")
+async def reject_evidence_transfer(
+    transfer_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Reject a pending custody transfer addressed to the current user."""
+    with get_db_immediate() as conn:
+        transfer = conn.execute(
+            """SELECT et.*, e.case_id FROM evidence_transfers et
+               JOIN evidence e ON e.id = et.evidence_id WHERE et.id = ?""",
+            (transfer_id,),
+        ).fetchone()
+        if not transfer:
+            raise HTTPException(status_code=404, detail="Transfer not found")
+        transfer_dict = dict(transfer)
+        if transfer_dict["to_user"] != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the recipient may reject this transfer")
+        if transfer_dict["status"] != "pending":
+            raise HTTPException(status_code=409, detail="Transfer is no longer pending")
         conn.execute(
-            """INSERT INTO audit_logs (id, user_id, user_email, user_role, action, entity_type, entity_id, case_id, created_at, metadata)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (generate_id("AUD-"), current_user.id, current_user.email, current_user.role_id,
-             "evidence.transferred", "evidence", evidence_id, dict(evidence)["case_id"], now,
-             f'{{"to_user": "{req.to_user_id}", "reason": "{req.reason}"}}'),
+            "UPDATE evidence_transfers SET status = 'rejected' WHERE id = ? AND status = 'pending'",
+            (transfer_id,),
         )
 
-    return {"message": "Evidence custody transferred", "transfer_id": transfer_id}
+    log_event(
+        "evidence.transfer_rejected",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        user_role=current_user.role_id,
+        entity_type="evidence",
+        entity_id=transfer_dict["evidence_id"],
+        case_id=transfer_dict["case_id"],
+        metadata=json.dumps({"transfer_id": transfer_id, "from_user": transfer_dict["from_user"]}),
+    )
+    return {"message": "Evidence transfer rejected", "transfer_id": transfer_id, "status": "rejected"}
