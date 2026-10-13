@@ -152,7 +152,20 @@ async def register(req: RegisterRequest, request: Request, current_user: Optiona
         role_id = "viewer"
         organization_id = ""
     else:
-        current_user.require_permission(Permission.USER_CREATE)
+        try:
+            current_user.require_permission(Permission.USER_CREATE)
+        except HTTPException:
+            log_event(
+                "user_create_denied",
+                user_id=current_user.id,
+                user_email=str(req.email),
+                user_role=current_user.role_id,
+                ip_address=ip,
+                result="failure",
+                severity="warning",
+                metadata=json.dumps({"reason": "insufficient_permission"}),
+            )
+            raise
         role_id = req.role_id
         organization_id = req.organization_id or ""
 
