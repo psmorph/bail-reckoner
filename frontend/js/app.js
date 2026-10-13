@@ -71,6 +71,7 @@ const routePermissions = {
 };
 
 let authValidation = null;
+let navigationToken = 0;
 
 // ===== Router ================================================================
 
@@ -109,7 +110,9 @@ async function validateStoredAuth() {
 }
 
 async function navigate() {
+    const currentNavigation = ++navigationToken;
     const authValid = await validateStoredAuth();
+    if (currentNavigation !== navigationToken) return;
     if (!authValid) {
         window.location.hash = '#/login';
         if (getRoute() !== '/login') return;
@@ -158,18 +161,27 @@ async function navigate() {
     app.innerHTML = page.render();
     document.documentElement.lang = getLanguage();
     translateDocument(app);
-
-    // Initialize page-specific behavior
-    if (page.init) {
-        try {
-            page.init();
-        } catch (e) {
-            console.error('Page init error:', e);
-        }
-    }
-
-    // Attach global event listeners
     attachGlobalListeners();
+
+    if (page.init) {
+        Promise.resolve()
+            .then(() => page.init())
+            .catch(error => {
+                if (currentNavigation === navigationToken) showErrorPage(error);
+            });
+    }
+}
+
+function showErrorPage(error) {
+    console.error('Page initialization failed:', error);
+    document.getElementById('app').innerHTML = `
+        <div class="page-content">
+            <div class="card" role="alert">
+                <h1>Unable to load this page</h1>
+                <p>Please try again. If the problem continues, contact your administrator.</p>
+                <a class="btn btn-primary" href="#/">Go home</a>
+            </div>
+        </div>`;
 }
 
 // ===== Global Event Listeners ================================================
@@ -248,10 +260,8 @@ function attachGlobalListeners() {
 // Listen for hash changes
 window.addEventListener('hashchange', navigate);
 
-// Initial navigation
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState !== 'loading') {
     navigate();
-});
-
-// Also run on load (for when hash is already set)
-navigate();
+} else {
+    document.addEventListener('DOMContentLoaded', navigate, { once: true });
+}
