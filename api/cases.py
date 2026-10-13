@@ -14,6 +14,7 @@ from api.access import accessible_case_clause, check_case_access
 from api.database import generate_case_id, get_db, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user, get_client_ip
 from services.audit import log_case_event
+from services.notifications import create_notification
 from services.rbac import Permission
 
 router = APIRouter(prefix="/api/cases", tags=["Cases"])
@@ -319,7 +320,7 @@ async def update_case(
     ip = get_client_ip(request)
 
     with get_db() as conn:
-        _check_case_access(conn, case_id, current_user)
+        case = _check_case_access(conn, case_id, current_user)
 
         updates = []
         params = []
@@ -342,6 +343,22 @@ async def update_case(
     log_case_event("case_updated", user_id=current_user.id,
                    user_role=current_user.role_id, case_id=case_id, ip=ip,
                    detail=json.dumps(req.model_dump(exclude_none=True)))
+
+    assigned_users = {
+        req.assigned_investigator
+        if req.assigned_investigator and req.assigned_investigator != case.get("assigned_investigator")
+        else None,
+        req.assigned_forensic
+        if req.assigned_forensic and req.assigned_forensic != case.get("assigned_forensic")
+        else None,
+    }
+    for assignee_id in assigned_users - {None, current_user.id}:
+        create_notification(
+            assignee_id,
+            "Case assigned",
+            f"Case {case_id} has been assigned to you.",
+            link=f"/cases/{case_id}",
+        )
 
     return {"message": "Case updated", "case_id": case_id}
 

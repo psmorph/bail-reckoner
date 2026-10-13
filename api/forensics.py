@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from api.access import accessible_case_clause, check_case_access
 from api.database import get_db, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user
+from services.audit import log_event
+from services.notifications import create_notification
 from services.rbac import Permission
 
 router = APIRouter(prefix="/api/forensics", tags=["Forensic Reports"])
@@ -61,12 +63,15 @@ async def create_forensic_report(
              req.findings, req.conclusion, current_user.id, req.lab_name, now, now),
         )
 
-        conn.execute(
-            """INSERT INTO audit_logs (id, user_id, user_email, user_role, action, entity_type, entity_id, case_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (generate_id("AUD-"), current_user.id, current_user.email, current_user.role_id,
-             "forensic_report.created", "forensic_report", report_id, req.case_id, now),
-        )
+    log_event(
+        "forensic_report.created",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        user_role=current_user.role_id,
+        entity_type="forensic_report",
+        entity_id=report_id,
+        case_id=req.case_id,
+    )
 
     return {"message": "Forensic report created", "report_id": report_id}
 
@@ -157,7 +162,15 @@ async def update_forensic_report(
         row = conn.execute("SELECT * FROM forensic_reports WHERE id = ?", (report_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Forensic report not found")
-        check_case_access(conn, dict(row)["case_id"], current_user)
+        row_dict = dict(row)
+        check_case_access(conn, row_dict["case_id"], current_user)
+        became_final = req.status == "final" and row_dict["status"] != "final"
+        case_creator = None
+        if became_final:
+            case_creator = conn.execute(
+                "SELECT created_by FROM cases WHERE id = ?",
+                (row_dict["case_id"],),
+            ).fetchone()
 
         updates = []
         params = []
@@ -180,5 +193,13 @@ async def update_forensic_report(
             params.append(now)
             params.append(report_id)
             conn.execute(f"UPDATE forensic_reports SET {', '.join(updates)} WHERE id = ?", params)
+
+    if became_final and case_creator and case_creator["created_by"] != current_user.id:
+        create_notification(
+            case_creator["created_by"],
+            "Forensic report finalized",
+            f"Forensic report {report_id} is final.",
+            link=f"/forensics/{report_id}",
+        )
 
     return {"message": "Forensic report updated successfully"}

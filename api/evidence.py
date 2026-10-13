@@ -13,6 +13,7 @@ from api.access import accessible_case_clause, check_case_access
 from api.database import get_db, get_db_immediate, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user
 from services.audit import log_event
+from services.notifications import create_notification
 from services.rbac import Permission
 
 router = APIRouter(prefix="/api/evidence", tags=["Evidence"])
@@ -283,6 +284,13 @@ async def transfer_evidence(
         case_id=evidence_dict["case_id"],
         metadata=json.dumps({"transfer_id": transfer_id, "to_user": req.to_user_id, "reason": req.reason}),
     )
+    if req.to_user_id != current_user.id:
+        create_notification(
+            req.to_user_id,
+            "Evidence transfer requested",
+            f"Evidence {evidence_id} has been offered to you for custody.",
+            link=f"/evidence/{evidence_id}",
+        )
     return {"message": "Evidence transfer requested", "transfer_id": transfer_id, "status": "pending"}
 
 
@@ -329,6 +337,13 @@ async def acknowledge_evidence_transfer(
         case_id=transfer_dict["case_id"],
         metadata=json.dumps({"transfer_id": transfer_id, "from_user": transfer_dict["from_user"]}),
     )
+    if transfer_dict["from_user"] != current_user.id:
+        create_notification(
+            transfer_dict["from_user"],
+            "Evidence transfer acknowledged",
+            f"Transfer {transfer_id} was acknowledged.",
+            link=f"/evidence/{transfer_dict['evidence_id']}",
+        )
     return {"message": "Evidence transfer acknowledged", "transfer_id": transfer_id, "status": "completed"}
 
 
@@ -366,4 +381,11 @@ async def reject_evidence_transfer(
         case_id=transfer_dict["case_id"],
         metadata=json.dumps({"transfer_id": transfer_id, "from_user": transfer_dict["from_user"]}),
     )
+    if transfer_dict["from_user"] != current_user.id:
+        create_notification(
+            transfer_dict["from_user"],
+            "Evidence transfer rejected",
+            f"Transfer {transfer_id} was rejected.",
+            link=f"/evidence/{transfer_dict['evidence_id']}",
+        )
     return {"message": "Evidence transfer rejected", "transfer_id": transfer_id, "status": "rejected"}

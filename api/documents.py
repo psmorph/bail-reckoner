@@ -28,6 +28,7 @@ from services.file_handler import (
     validate_extension,
 )
 from services.malware_scan import scan_bytes
+from services.notifications import create_notification
 from services.rbac import Permission
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
@@ -47,7 +48,7 @@ async def upload_document(
 
     # Validate case access
     with get_db() as conn:
-        check_case_access(conn, case_id, current_user)
+        case = check_case_access(conn, case_id, current_user)
 
     content_length = request.headers.get("content-length")
     if content_length:
@@ -154,6 +155,18 @@ async def upload_document(
                            "size": len(data),
                            "sha256": file_hash,
                        }))
+
+    notification_recipients = {
+        case.get("created_by"),
+        case.get("assigned_investigator"),
+    } - {None, current_user.id}
+    for recipient_id in notification_recipients:
+        create_notification(
+            recipient_id,
+            "Document uploaded",
+            f"A document was uploaded to case {case_id}.",
+            link=f"/documents/{doc_id}",
+        )
 
     return {
         "message": "Document uploaded and encrypted",
@@ -364,6 +377,29 @@ async def verify_document(
             "blockchain_match": blockchain_match,
         }),
     )
+
+    if not hash_match:
+        with get_db() as conn:
+            recipients = {
+                row["id"]
+                for row in conn.execute(
+                    "SELECT id FROM users WHERE role_id = 'master_admin' AND is_active = 1"
+                ).fetchall()
+            }
+            case_creator = conn.execute(
+                "SELECT created_by FROM cases WHERE id = ?",
+                (doc_dict["case_id"],),
+            ).fetchone()
+        if case_creator:
+            recipients.add(case_creator["created_by"])
+        for recipient_id in recipients - {current_user.id}:
+            create_notification(
+                recipient_id,
+                "Document integrity violation",
+                f"Document {doc_dict['original_name']} failed its integrity check.",
+                notification_type="urgent",
+                link=f"/documents/{doc_id}",
+            )
 
     return {
         "document_id": doc_id,

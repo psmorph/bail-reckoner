@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from api.access import accessible_case_clause, check_case_access
 from api.database import get_db, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user
+from services.audit import log_event
+from services.notifications import create_notification
 from services.rbac import Permission
 
 router = APIRouter(prefix="/api/court-proceedings", tags=["Court Proceedings"])
@@ -46,7 +48,7 @@ async def create_proceeding(
     now = now_iso()
 
     with get_db() as conn:
-        check_case_access(conn, req.case_id, current_user)
+        case = check_case_access(conn, req.case_id, current_user)
 
         conn.execute(
             """INSERT INTO court_proceedings (id, case_id, hearing_date, hearing_type, court_name,
@@ -57,11 +59,21 @@ async def create_proceeding(
              current_user.id, now),
         )
 
-        conn.execute(
-            """INSERT INTO audit_logs (id, user_id, user_email, user_role, action, entity_type, entity_id, case_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (generate_id("AUD-"), current_user.id, current_user.email, current_user.role_id,
-             "court_proceeding.created", "court_proceeding", proc_id, req.case_id, now),
+    log_event(
+        "court_proceeding.created",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        user_role=current_user.role_id,
+        entity_type="court_proceeding",
+        entity_id=proc_id,
+        case_id=req.case_id,
+    )
+    if req.next_date and case["created_by"] != current_user.id:
+        create_notification(
+            case["created_by"],
+            "Court proceeding scheduled",
+            f"A court proceeding for case {req.case_id} has a next date of {req.next_date}.",
+            link=f"/court-proceedings/{proc_id}",
         )
 
     return {"message": "Court proceeding recorded", "proceeding_id": proc_id}
@@ -149,7 +161,12 @@ async def update_proceeding(
         row = conn.execute("SELECT * FROM court_proceedings WHERE id = ?", (proceeding_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Court proceeding not found")
-        check_case_access(conn, dict(row)["case_id"], current_user)
+        row_dict = dict(row)
+        check_case_access(conn, row_dict["case_id"], current_user)
+        case = conn.execute(
+            "SELECT created_by FROM cases WHERE id = ?",
+            (row_dict["case_id"],),
+        ).fetchone()
 
         updates = []
         params = []
@@ -169,5 +186,18 @@ async def update_proceeding(
         if updates:
             params.append(proceeding_id)
             conn.execute(f"UPDATE court_proceedings SET {', '.join(updates)} WHERE id = ?", params)
+
+    if (
+        req.next_date
+        and req.next_date != row_dict["next_date"]
+        and case
+        and case["created_by"] != current_user.id
+    ):
+        create_notification(
+            case["created_by"],
+            "Court proceeding scheduled",
+            f"A court proceeding for case {row_dict['case_id']} has a next date of {req.next_date}.",
+            link=f"/court-proceedings/{proceeding_id}",
+        )
 
     return {"message": "Court proceeding updated successfully"}

@@ -7,8 +7,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from api.database import get_db, generate_id, now_iso
+from api.database import get_db
 from api.middleware import CurrentUser, get_current_user
+from services.notifications import create_notification
 
 router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 
@@ -28,7 +29,8 @@ async def list_notifications(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """List notifications for the current user."""
-    q = "SELECT * FROM notifications WHERE user_id = ?"
+    q = """SELECT id, type, title, body, link, is_read, created_at
+           FROM notifications WHERE user_id = ?"""
     params = [current_user.id]
 
     if unread_only:
@@ -96,19 +98,3 @@ async def get_notification_count(
         ).fetchone()
 
     return {"unread_count": row["cnt"] if row else 0}
-
-
-# ── Helper: Create notification from other modules ─────────────────────────
-
-def create_notification(user_id: str, title: str, body: str = "",
-                        notification_type: str = "info", link: str = ""):
-    """Create a notification for a user (called from other API modules)."""
-    notification_id = generate_id("NTF-")
-    now = now_iso()
-    with get_db() as conn:
-        conn.execute(
-            """INSERT INTO notifications (id, user_id, type, title, body, link, is_read, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, 0, ?)""",
-            (notification_id, user_id, notification_type, title, body, link, now),
-        )
-    return notification_id

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from api.access import accessible_case_clause, check_case_access
 from api.database import get_db, generate_id, now_iso
 from api.middleware import CurrentUser, get_current_user
+from services.audit import log_event
 from services.rbac import Permission
 
 router = APIRouter(prefix="/api/investigations", tags=["Investigation"])
@@ -51,12 +52,15 @@ async def create_investigation_entry(
             (entry_id, req.case_id, current_user.id, req.entry_type, req.title, req.content, req.findings, now, now),
         )
 
-        # Audit log
-        conn.execute(
-            """INSERT INTO audit_logs (id, user_id, user_email, user_role, action, entity_type, entity_id, case_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (generate_id("AUD-"), current_user.id, current_user.email, current_user.role_id, "investigation.created", "investigation", entry_id, req.case_id, now),
-        )
+    log_event(
+        "investigation.created",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        user_role=current_user.role_id,
+        entity_type="investigation",
+        entity_id=entry_id,
+        case_id=req.case_id,
+    )
 
     return {"message": "Investigation entry created successfully", "id": entry_id}
 
