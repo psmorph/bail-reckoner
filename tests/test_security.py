@@ -1,5 +1,6 @@
 import importlib
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -222,6 +223,31 @@ def test_registration_requires_role_management_permission(client, login_as):
         )
         assert response.status_code == 403
 
+    same_org_body = {
+        **request_body,
+        "email": "same-org-viewer@example.com",
+        "role_id": "viewer",
+        "organization_id": "ORG-DIST-CENTRAL",
+    }
+    created = client.post("/api/auth/register", headers=admin_headers, json=same_org_body)
+    assert created.status_code == 201
+    duplicate = client.post("/api/auth/register", headers=admin_headers, json=same_org_body)
+    assert duplicate.status_code == 409
+
+    cross_org = client.post(
+        "/api/auth/register",
+        headers=admin_headers,
+        json={**same_org_body, "email": "cross-org-user@example.com", "organization_id": "ORG-PS-SAKET"},
+    )
+    assert cross_org.status_code == 403
+
+    weak_password = client.post(
+        "/api/auth/register",
+        headers=admin_headers,
+        json={**same_org_body, "email": "weak-password@example.com", "password": "short"},
+    )
+    assert weak_password.status_code == 400
+
 
 def test_database_routes_require_authentication(client):
     for endpoint in (
@@ -233,6 +259,20 @@ def test_database_routes_require_authentication(client):
     ):
         response = client.get(endpoint)
         assert response.status_code == 401, endpoint
+
+
+def test_shared_database_and_config_hygiene_contracts():
+    root = Path(__file__).resolve().parents[1]
+    main_source = (root / "api" / "main.py").read_text(encoding="utf-8")
+    ignore_source = (root / ".gitignore").read_text(encoding="utf-8")
+    runner_source = (root / "run_web.py").read_text(encoding="utf-8")
+    example_env = (root / ".env.example").read_text(encoding="utf-8")
+
+    assert "sqlite3.connect(" not in main_source
+    for required_pattern in ("secure_vault/", "*.db", "*.db-wal", "*.db-shm", ".env", ".dev_fernet_key"):
+        assert required_pattern in ignore_source
+    assert 'reload_dirs=["api", "services", "frontend"]' in runner_source
+    assert "ALLOW_PUBLIC_REGISTRATION=false" in example_env
 
 
 def test_seeded_cross_organization_access_is_denied(client, login_as):
