@@ -319,12 +319,17 @@ def test_seeded_cross_organization_access_is_denied(client, login_as):
     assert proceeding_response.status_code == 200, proceeding_response.text
     proceeding_id = proceeding_response.json()["proceeding_id"]
 
-    report_id = "TEST-FORENSIC-PRIVATE"
+    forensic_headers = login_as("dr.rao@fsl.dl.in")
     with get_db() as conn:
-        conn.execute(
-            "INSERT INTO forensic_reports (id, case_id, title, officer_id) VALUES (?, ?, ?, ?)",
-            (report_id, case_id, "Private forensic report", "USR-POLICE-01"),
-        )
+        conn.execute("UPDATE cases SET assigned_forensic = 'USR-FORENSIC-01' WHERE id = ?", (case_id,))
+
+    report_response = client.post(
+        "/api/forensics",
+        headers=forensic_headers,
+        json={"case_id": case_id, "title": "Private forensic report"},
+    )
+    assert report_response.status_code == 200, report_response.text
+    report_id = report_response.json()["report_id"]
 
     blockchain_response = client.post(
         "/api/blockchain/register",
@@ -351,8 +356,16 @@ def test_seeded_cross_organization_access_is_denied(client, login_as):
     visible_blocks = client.get("/api/blockchain/chain", headers=verma_headers).json()["blocks"]
     assert case_id not in {block["case_id"] for block in visible_blocks}
 
-    investigator_headers = login_as("io.gupta@police.dl.in")
-    forensic_get = client.get(f"/api/forensics/{report_id}", headers=investigator_headers)
+    forensic_get = client.get(f"/api/forensics/{report_id}", headers=verma_headers)
     assert forensic_get.status_code == 404
-    forensic_list = client.get("/api/forensics", headers=investigator_headers).json()["reports"]
+    forensic_list = client.get("/api/forensics", headers=verma_headers).json()["reports"]
     assert report_id not in {item["id"] for item in forensic_list}
+
+
+def test_organization_match_requires_both_ids():
+    from api.access import _org_matches
+
+    assert not _org_matches("", "")
+    assert not _org_matches("org-a", "")
+    assert not _org_matches("", "org-a")
+    assert _org_matches("org-a", "org-a")
