@@ -119,6 +119,21 @@ def test_settings_import_rejects_empty_production_secrets(monkeypatch):
         importlib.reload(importlib.import_module("api.settings"))
 
 
+def test_security_headers_include_content_security_policy(isolated_db):
+    import api.main as main_module
+
+    importlib.reload(main_module)
+    with TestClient(main_module.app) as client:
+        response = client.get("/")
+
+    assert response.headers["Content-Security-Policy"] == (
+        "default-src 'self'; script-src 'self'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; img-src 'self' data:; "
+        "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    )
+
+
 def test_public_registration_forces_viewer_role(monkeypatch, isolated_db):
     import api.main as main_module
     from api.database import get_db
