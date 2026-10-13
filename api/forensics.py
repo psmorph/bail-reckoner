@@ -39,7 +39,7 @@ async def create_forensic_report(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Create a new forensic analysis report."""
-    current_user.require_permission(Permission.INVESTIGATION_CREATE)
+    current_user.require_permission(Permission.FORENSIC_CREATE)
 
     report_id = generate_id("FSR-")
     now = now_iso()
@@ -81,7 +81,7 @@ async def list_forensic_reports(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """List forensic reports with filters."""
-    current_user.require_permission(Permission.INVESTIGATION_READ)
+    current_user.require_permission(Permission.FORENSIC_READ)
 
     q = """SELECT fr.*, u.full_name as officer_name, c.title as case_title
            FROM forensic_reports fr
@@ -124,7 +124,7 @@ async def get_forensic_report(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get a single forensic report."""
-    current_user.require_permission(Permission.INVESTIGATION_READ)
+    current_user.require_permission(Permission.FORENSIC_READ)
 
     with get_db() as conn:
         row = conn.execute(
@@ -151,7 +151,7 @@ async def update_forensic_report(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Update a forensic report."""
-    current_user.require_permission(Permission.INVESTIGATION_UPDATE)
+    current_user.require_permission(Permission.FORENSIC_UPDATE)
 
     with get_db() as conn:
         row = conn.execute("SELECT * FROM forensic_reports WHERE id = ?", (report_id,)).fetchone()
