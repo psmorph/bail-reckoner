@@ -22,13 +22,9 @@ from pypdf import PdfReader
 from starlette.concurrency import run_in_threadpool
 
 # ---------------------------------------------------------------------------
-# Environment — load .env before anything else
+# Environment — load and validate configuration before application setup
 # ---------------------------------------------------------------------------
-try:
-    from dotenv import load_dotenv
-    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
-except ImportError:
-    pass  # python-dotenv is optional for basic operation
+import api.settings  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Path setup — import engine from the project root

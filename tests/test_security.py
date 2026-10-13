@@ -1,6 +1,9 @@
 import importlib
 import json
 from pathlib import Path
+import os
+import subprocess
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -75,15 +78,44 @@ def test_development_mode_allows_missing_secrets(monkeypatch):
 def test_production_startup_rejects_empty_secrets(monkeypatch, isolated_db, jwt_secret, encryption_key):
     import api.main as main_module
 
+    monkeypatch.setenv("APP_ENV", "development")
+    importlib.reload(main_module)
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("JWT_SECRET_KEY", jwt_secret)
     monkeypatch.setenv("DOCUMENT_ENCRYPTION_KEY", encryption_key)
     get_fernet.cache_clear()
-    importlib.reload(main_module)
-
     with pytest.raises(RuntimeError, match="Startup validation failed"):
         with TestClient(main_module.app):
             pass
+
+
+def test_production_uvicorn_fails_with_empty_secrets():
+    root = Path(__file__).resolve().parents[1]
+    env = os.environ.copy()
+    env.update({
+        "APP_ENV": "production",
+        "JWT_SECRET_KEY": "",
+        "DOCUMENT_ENCRYPTION_KEY": "",
+        "DATABASE_URL": f"sqlite:///{root / 'uvicorn-startup-test.db'}",
+    })
+    result = subprocess.run(
+        [sys.executable, "-m", "uvicorn", "api.main:app", "--host", "127.0.0.1", "--port", "0"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode != 0
+    assert "JWT_SECRET_KEY is required in production" in result.stderr
+
+
+def test_settings_import_rejects_empty_production_secrets(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET_KEY", "")
+    monkeypatch.setenv("DOCUMENT_ENCRYPTION_KEY", "")
+    with pytest.raises(RuntimeError, match="JWT_SECRET_KEY is required in production"):
+        importlib.reload(importlib.import_module("api.settings"))
 
 
 def test_public_registration_forces_viewer_role(monkeypatch, isolated_db):
