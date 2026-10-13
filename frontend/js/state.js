@@ -40,7 +40,6 @@ export function clearRole() {
     state.currentCase = null;
     localStorage.removeItem('br_role');
     localStorage.removeItem('br_role_name');
-    // Also clear platform auth
     clearAuth();
 }
 
@@ -116,8 +115,14 @@ export function getAuthUser() {
 export function clearAuth() {
     state.authToken = null;
     state.user = null;
+    state.role = null;
+    state.roleName = '';
+    state.currentCase = null;
     localStorage.removeItem('br_auth_token');
     localStorage.removeItem('br_auth_user');
+    localStorage.removeItem('br_role');
+    localStorage.removeItem('br_role_name');
+    sessionStorage.removeItem('br_case');
 }
 
 /** Check if the user is authenticated via the platform */

@@ -4,9 +4,29 @@
  * Extended with platform authentication support.
  */
 
-import { getAuthToken } from './state.js';
+import { clearAuth, getAuthToken } from './state.js';
 
 const BASE = '';  // Same origin
+
+async function fetchApi(url, options = {}) {
+    const headers = new Headers(options.headers || {});
+    const token = getAuthToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const response = await fetch(url, { ...options, headers });
+    const isLoginRequest = url.includes('/api/auth/login');
+    if (response.status === 401 && !isLoginRequest) {
+        clearAuth();
+        if (typeof window !== 'undefined') window.location.hash = '#/login';
+    }
+    return response;
+}
+
+async function throwApiError(response, fallback) {
+    const errorBody = await response.json().catch(() => ({ detail: response.statusText }));
+    const error = new Error(errorBody.detail || fallback);
+    error.status = response.status;
+    throw error;
+}
 
 /** Generic fetch helper — now attaches JWT auth header when available */
 async function request(method, path, body = null, params = null) {
@@ -31,10 +51,9 @@ async function request(method, path, body = null, params = null) {
 
     if (body) opts.body = JSON.stringify(body);
 
-    const res = await fetch(url, opts);
+    const res = await fetchApi(url, opts);
     if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail || `API error ${res.status}`);
+        await throwApiError(res, `API error ${res.status}`);
     }
     return res.json();
 }
@@ -61,6 +80,10 @@ export async function getAvailableRoles() {
     return request('GET', '/api/auth/roles');
 }
 
+export async function getConfig() {
+    return request('GET', '/api/config');
+}
+
 // ===== Case Review (core workflow) ============================================
 
 export async function reviewCase(data) {
@@ -74,11 +97,8 @@ export async function extractCaseText(file) {
     const headers = {};
     const token = getAuthToken();
     if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetch(`${BASE}/api/case/extract-text`, { method: 'POST', headers, body: formData });
-    if (!res.ok) {
-        const error = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(error.detail || `Document extraction failed (${res.status})`);
-    }
+    const res = await fetchApi(`${BASE}/api/case/extract-text`, { method: 'POST', headers, body: formData });
+    if (!res.ok) await throwApiError(res, `Document extraction failed (${res.status})`);
     return res.json();
 }
 
@@ -164,14 +184,16 @@ export async function uploadDocument(caseId, docType, file) {
     formData.append('file', file);
 
     const token = (await import('./state.js')).getAuthToken();
-    const res = await fetch(`/api/documents?case_id=${encodeURIComponent(caseId)}&doc_type=${encodeURIComponent(docType)}`, {
+    const res = await fetchApi(`/api/documents?case_id=${encodeURIComponent(caseId)}&doc_type=${encodeURIComponent(docType)}`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: formData,
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail || `Upload failed: ${res.status}`);
+        const error = new Error(err.detail || `Upload failed: ${res.status}`);
+        error.status = res.status;
+        throw error;
     }
     return res.json();
 }
@@ -190,10 +212,10 @@ export async function verifyDocument(docId) {
 
 export async function downloadDocument(docId) {
     const token = (await import('./state.js')).getAuthToken();
-    const res = await fetch(`/api/documents/${docId}/download`, {
+    const res = await fetchApi(`/api/documents/${encodeURIComponent(docId)}/download`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
-    if (!res.ok) throw new Error('Download failed');
+    if (!res.ok) await throwApiError(res, `Download failed: ${res.status}`);
     const blob = await res.blob();
     const hash = res.headers.get('X-Document-Hash') || '';
     return { blob, hash, filename: res.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'document' };
@@ -320,4 +342,3 @@ export async function markAllNotificationsRead() {
 export async function getNotificationCount() {
     return request('GET', '/api/notifications/count');
 }
-

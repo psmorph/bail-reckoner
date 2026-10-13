@@ -3,8 +3,9 @@
  * SPA router and global event handling.
  */
 
-import { getRole, clearRole, setLanguage, getLanguage, toggleSidebar } from './state.js';
+import { clearAuth, getAuthToken, hasPermission, isAuthenticated, setAuth, setLanguage, getLanguage } from './state.js';
 import { languages, translateDocument } from './i18n.js';
+import * as api from './api.js';
 
 // Page modules
 import * as landing from './pages/landing.js';
@@ -63,6 +64,14 @@ const paramRoutes = [
     '/case-details',
 ];
 
+const routePermissions = {
+    '/admin': ['system:admin', 'audit:read'],
+    '/police-dashboard': ['case:create'],
+    '/judicial-dashboard': ['court:read'],
+};
+
+let authValidation = null;
+
 // ===== Router ================================================================
 
 function getRoute() {
@@ -81,10 +90,33 @@ function resolveRoute(route) {
     return null;
 }
 
-function navigate() {
+async function validateStoredAuth() {
+    if (!authValidation) {
+        authValidation = (async () => {
+            const token = getAuthToken();
+            if (!token) return true;
+            try {
+                const user = await api.getProfile();
+                setAuth(token, user);
+                return true;
+            } catch (error) {
+                clearAuth();
+                return false;
+            }
+        })();
+    }
+    return authValidation;
+}
+
+async function navigate() {
+    const authValid = await validateStoredAuth();
+    if (!authValid) {
+        window.location.hash = '#/login';
+        if (getRoute() !== '/login') return;
+    }
+
     const route = getRoute();
     const page = resolveRoute(route);
-    console.log('[Router] route=', route, 'page=', page, 'keys=', Object.keys(routes));
 
     if (!page) {
         // Fallback to landing
@@ -95,6 +127,24 @@ function navigate() {
                     <h2>Page Not Found</h2>
                     <p style="color: var(--text-secondary); margin: 12px 0 24px">The page you're looking for doesn't exist.</p>
                     <a class="btn btn-primary" href="#/">Go Home</a>
+                </div>
+            </div>`;
+        return;
+    }
+
+    if (route !== '/' && route !== '/login' && !isAuthenticated()) {
+        window.location.hash = '#/login';
+        return;
+    }
+
+    const requiredPermissions = routePermissions[route];
+    if (requiredPermissions && !requiredPermissions.some(hasPermission)) {
+        document.getElementById('app').innerHTML = `
+            <div class="page-content">
+                <div class="card" role="alert">
+                    <h1>Not authorized</h1>
+                    <p>Your account does not have permission to view this page.</p>
+                    <a class="btn btn-primary" href="#/">Go home</a>
                 </div>
             </div>`;
         return;
@@ -147,8 +197,13 @@ function attachGlobalListeners() {
     });
 
     // Logout
-    document.getElementById('logout-btn')?.addEventListener('click', () => {
-        clearRole();
+    document.getElementById('logout-btn')?.addEventListener('click', async () => {
+        try {
+            await api.platformLogout();
+        } catch (error) {
+            console.warn('Server logout failed:', error);
+        }
+        clearAuth();
         window.location.hash = '#/login';
     });
 

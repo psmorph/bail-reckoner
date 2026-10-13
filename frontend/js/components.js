@@ -76,7 +76,7 @@ export function navbar(options = {}) {
             ${showRole ? `
                 <span class="badge badge-primary badge-lg">${escapeHtml(roleName)}</span>
                 <button class="btn btn-ghost btn-sm" data-navigate="/notifications" title="${t('Notifications', language)}">${icons.bell}</button>
-                <button class="btn btn-ghost btn-sm" id="logout-btn" title="${t('Switch Role', language)}">${icons.logout}</button>
+                <button class="btn btn-ghost btn-sm" id="logout-btn" title="Logout">${icons.logout}</button>
             ` : `
                 <button class="btn btn-secondary btn-sm" data-navigate="/login">${t('Login', language)}</button>
                 <button class="btn btn-primary btn-sm" data-navigate="/login">${t('Get Started', language)}</button>
