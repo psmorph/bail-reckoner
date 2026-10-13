@@ -49,3 +49,8 @@ desktop.ini
 
 # Node (if ever used)
 node_modules/
+
+secure_vault/
+*.db
+*.db-wal
+*.db-shm
