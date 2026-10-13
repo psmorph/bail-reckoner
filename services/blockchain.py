@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from api.database import get_db, generate_id, now_iso
+from api.database import get_db, get_db_immediate, generate_id, now_iso
 
 
 DIFFICULTY = 4  # Number of leading zeros in block hash (easy for demo speed)
@@ -63,22 +63,32 @@ def register_document(
     Register a document's integrity proof on the blockchain.
     This actually mines a block with proof-of-work.
     """
-    with get_db() as conn:
+    with get_db_immediate() as conn:
         existing = conn.execute("SELECT * FROM blockchain_records WHERE document_id = ? ORDER BY block_index DESC LIMIT 1", (document_id,)).fetchone()
         if existing and dict(existing)["sha256_hash"] == sha256_hash:
-            return dict(existing)
+            row = dict(existing)
+            return {
+                "record_id": row["id"],
+                "block_index": row["block_index"],
+                "block_hash": row["block_hash"],
+                "previous_hash": row["previous_hash"],
+                "sha256_hash": row["sha256_hash"],
+                "nonce": row["nonce"],
+                "timestamp": row["timestamp"],
+                "authority": row["authority"],
+                "duplicate": True,
+            }
 
-    latest = get_latest_block()
-    block_index = (latest["block_index"] + 1) if latest else 0
-    previous_hash = latest["block_hash"] if latest else "0" * 64
-    timestamp = now_iso()
+        latest = conn.execute(
+            "SELECT block_index, block_hash FROM blockchain_records ORDER BY block_index DESC LIMIT 1"
+        ).fetchone()
+        block_index = (latest["block_index"] + 1) if latest else 0
+        previous_hash = latest["block_hash"] if latest else "0" * 64
+        timestamp = now_iso()
+        nonce, block_hash = _mine_block(block_index, previous_hash, timestamp,
+                                         sha256_hash, authority)
+        record_id = generate_id("BLK-")
 
-    nonce, block_hash = _mine_block(block_index, previous_hash, timestamp,
-                                     sha256_hash, authority)
-
-    record_id = generate_id("BLK-")
-
-    with get_db() as conn:
         conn.execute(
             """INSERT INTO blockchain_records
                (id, document_id, evidence_id, case_id, sha256_hash, previous_hash,
@@ -100,6 +110,7 @@ def register_document(
         "nonce": nonce,
         "timestamp": timestamp,
         "authority": authority,
+        "duplicate": False,
     }
 
 

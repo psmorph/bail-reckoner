@@ -59,6 +59,11 @@ async def register_on_blockchain(
         authority=current_user.full_name,
         authority_type=current_user.role_id,
     )
+    if result.pop("duplicate", False):
+        raise HTTPException(
+            status_code=409,
+            detail={"message": "Document is already registered on the blockchain", "block": result},
+        )
 
     # Update document with blockchain tx id
     with get_db() as conn:

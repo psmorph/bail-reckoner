@@ -52,8 +52,8 @@ def get_db():
 def get_db_immediate():
     """Connection for transactions requiring BEGIN IMMEDIATE semantics."""
     conn = get_connection()
-    conn.execute("BEGIN IMMEDIATE")
     try:
+        conn.execute("BEGIN IMMEDIATE")
         yield conn
         conn.commit()
     except Exception:
