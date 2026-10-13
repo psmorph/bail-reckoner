@@ -40,7 +40,7 @@ const {
 
 const payload = '<img src=x onerror=alert(1)>';
 const renderedComponents = [
-    ['badge', badge(payload)],
+    ['badge', badge(payload, payload)],
     ['statCard', statCard({ icon: payload, iconBg: payload, value: payload, label: payload, change: payload, changeType: payload })],
     ['caseCard', caseCard({
         title: payload, court: payload, date: payload, bailType: payload,
@@ -70,7 +70,7 @@ const renderedComponents = [
     ['navbar', navbar({ showLinks: false, showRole: true, roleName: payload })],
 ];
 
-showToast(payload, 'info', 0);
+showToast(payload, payload, 0);
 renderedComponents.push(['showToast', lastCreatedElement.innerHTML]);
 
 for (const [name, html] of renderedComponents) {
@@ -80,4 +80,7 @@ for (const [name, html] of renderedComponents) {
 }
 
 assert.equal(escapeHtml(`&<>"'`), '&amp;&lt;&gt;&quot;&#39;');
+const emptyTable = dataTable({ columns: [], rows: [], emptyText: payload });
+assert.ok(!emptyTable.includes('<img'), 'dataTable rendered unescaped empty text');
+assert.ok(emptyTable.includes('&lt;img'), 'dataTable did not escape empty text');
 console.log(`Passed XSS escaping checks for ${renderedComponents.length} shared components.`);
