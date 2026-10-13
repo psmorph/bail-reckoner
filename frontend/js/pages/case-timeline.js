@@ -3,8 +3,8 @@
  * Connects to real /api/cases/{id}/timeline endpoint.
  * Reads case ID from URL hash or from current case in session.
  */
-import { navbar, icons, timeline, badge, statCard, showToast } from '../components.js';
-import { getRole, isAuthenticated, getCurrentCase } from '../state.js';
+import { navbar, icons, timeline, badge, statCard, showToast, escapeHtml } from '../components.js';
+import { getRole, isAuthenticated } from '../state.js';
 import * as api from '../api.js';
 
 let caseData = null;
@@ -70,16 +70,9 @@ export async function init() {
 }
 
 function getCaseIdFromUrl() {
-    const hash = window.location.hash;
-    // Try URL params: #/case-timeline?case=CASE-2026-00001
-    const match = hash.match(/[?&]case=([^&]+)/);
-    if (match) return decodeURIComponent(match[1]);
-
-    // Try session stored case
-    const current = getCurrentCase();
-    if (current?.id) return current.id;
-
-    return null;
+    const query = window.location.hash.split('?')[1] || '';
+    const caseId = new URLSearchParams(query).get('case');
+    return caseId && /^[A-Za-z0-9\-_]+$/.test(caseId) ? caseId : null;
 }
 
 async function loadTimeline() {
@@ -116,7 +109,7 @@ async function loadTimeline() {
             api.getCaseTimeline(caseId),
         ]);
 
-        caseData = caseResult;
+        caseData = caseResult.case;
         timelineEvents = timelineResult.timeline || [];
 
         // Update subtitle
@@ -130,7 +123,8 @@ async function loadTimeline() {
         document.getElementById('stat-events').textContent = timelineEvents.length.toString();
 
         if (timelineEvents.length > 0) {
-            const latestDate = timelineEvents[0].date || timelineEvents[0].created_at;
+            const latestEvent = timelineEvents[timelineEvents.length - 1];
+            const latestDate = latestEvent.date || latestEvent.created_at;
             document.getElementById('stat-latest').textContent = formatDateShort(latestDate);
         }
 
@@ -162,7 +156,7 @@ async function loadTimeline() {
     } catch (err) {
         container.innerHTML = `
             <div style="text-align: center; padding: var(--space-8); color: var(--text-secondary)">
-                ${icons.danger} Failed to load timeline: ${err.message}
+                ${err.status === 404 ? 'Case not found or you do not have access.' : `${icons.danger} Failed to load timeline: ${escapeHtml(err.message)}`}
             </div>`;
     }
 }
@@ -184,20 +178,24 @@ async function showCasePicker() {
         picker.innerHTML = `
             <div style="display: grid; gap: var(--space-3); text-align: left">
                 ${cases.map(c => `
-                    <div class="case-list-item" style="cursor: pointer; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); transition: all 0.15s ease"
-                         onclick="window.location.hash='#/case-timeline?case=${encodeURIComponent(c.id)}'">
+                    <button type="button" class="case-list-item timeline-case-picker-item" data-case-id="${escapeHtml(encodeURIComponent(c.id))}" style="cursor: pointer; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); transition: all 0.15s ease; text-align: left; width: 100%">
                         <div style="display: flex; justify-content: space-between; align-items: center">
                             <div>
-                                <div style="font-weight: 600">${c.id}</div>
-                                <div style="font-size: var(--text-sm); color: var(--text-secondary)">${c.title}</div>
-                            </div>
+                                <div style="font-weight: 600">${escapeHtml(c.id)}</div>
+                                <div style="font-size: var(--text-sm); color: var(--text-secondary)">${escapeHtml(c.title)}</div>
+                            </button>
                             <div>${badge(c.status, c.status === 'active' ? 'success' : 'neutral')}</div>
                         </div>
                     </div>
                 `).join('')}
             </div>`;
+        picker.querySelectorAll('.timeline-case-picker-item').forEach(button => {
+            button.addEventListener('click', () => {
+                window.location.hash = `#/case-timeline?case=${button.dataset.caseId}`;
+            });
+        });
     } catch (err) {
-        picker.innerHTML = `<div style="color: var(--text-secondary)">Failed to load cases: ${err.message}</div>`;
+        picker.innerHTML = `<div style="color: var(--text-secondary)">${escapeHtml(err.message)}</div>`;
     }
 }
 

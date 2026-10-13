@@ -1,14 +1,8 @@
 /**
  * NyaySetu — AI Case Analysis Dashboard
  */
-import { navbar, icons, badge, aiBadge, statCard, accordion, disclaimer, alert, caseCard } from '../components.js';
+import { navbar, icons, badge, aiBadge, statCard, accordion, disclaimer, alert, caseCard, escapeHtml } from '../components.js';
 import { getCurrentCase } from '../state.js';
-
-function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    })[char]);
-}
 
 export function render() {
     const roleName = localStorage.getItem('br_role_name') || 'User';
@@ -62,7 +56,7 @@ export function render() {
 
             <!-- Summary Stats -->
             <div class="grid-cols-5" style="margin-bottom: var(--space-6)">
-                ${statCard({ icon: '📋', value: escapeHtml(input.bailType || 'Not entered'), label: 'Bail type entered', iconBg: 'var(--primary-50)' })}
+                ${statCard({ icon: '📋', value: input.bailType || 'Not entered', label: 'Bail type entered', iconBg: 'var(--primary-50)' })}
                 ${statCard({ icon: '🕐', value: input.arrestDate ? `${custodyDays} days` : 'Not calculated', label: 'Custody duration', iconBg: 'var(--warning-50)' })}
                 ${statCard({ icon: '⚖️', value: sectionCount.toString(), label: 'Section entries supplied', iconBg: 'var(--danger-50)' })}
                 ${statCard({ icon: '📚', value: similarCases.length.toString(), label: 'Similar judgments found', iconBg: 'var(--info-50)' })}
@@ -127,12 +121,12 @@ export function render() {
                 ${similarCases.length > 0 ? `
                     <div style="display: grid; gap: var(--space-4)">
                         ${similarCases.map(c => caseCard({
-                            title: escapeHtml(c.case_title || c.case_name || 'Case'),
-                            court: escapeHtml(c.court || ''),
-                            date: escapeHtml(c.date || ''),
-                            bailType: escapeHtml(c.bail_type || ''),
-                            outcome: escapeHtml(c.bail_outcome || ''),
-                            sections: escapeHtml(c.ipc_sections || ''),
+                            title: c.case_title || c.case_name || 'Case',
+                            court: c.court || '',
+                            date: c.date || '',
+                            bailType: c.bail_type || '',
+                            outcome: c.bail_outcome || '',
+                            sections: c.ipc_sections || '',
                             similarity: c.similarity,
                         })).join('')}
                     </div>

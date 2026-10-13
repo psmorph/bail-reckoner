@@ -1,7 +1,7 @@
 /**
  * NyaySetu — Lawyer Discovery / Matching Page
  */
-import { navbar, icons, badge } from '../components.js';
+import { navbar, icons, badge, escapeHtml } from '../components.js';
 import { getRole } from '../state.js';
 import { sampleLawyers } from '../data.js';
 
@@ -74,28 +74,28 @@ export function render() {
 function lawyerCardFull(l) {
     return `
     <div class="lawyer-card">
-        <div class="lawyer-avatar">${l.initials}</div>
+        <div class="lawyer-avatar">${escapeHtml(l.initials)}</div>
         <div class="lawyer-info">
             <div class="lawyer-name">
-                ${l.name}
+                ${escapeHtml(l.name)}
                 ${l.verified ? `<span style="color: var(--success-500)" title="Verified Professional">✅</span>` : ''}
             </div>
             <div class="lawyer-details">
-                ${l.experience} years experience • ${l.location} • ${l.cases} cases handled
+                ${escapeHtml(l.experience)} years experience • ${escapeHtml(l.location)} • ${escapeHtml(l.cases)} cases handled
             </div>
             <div class="lawyer-tags">
                 ${l.practiceAreas.map(a => badge(a, 'primary')).join('')}
                 ${l.languages.map(lang => badge(lang, 'neutral')).join('')}
             </div>
             <div style="margin-top: var(--space-3); font-size: var(--text-sm)">
-                <strong>Courts:</strong> ${l.courts.join(', ')}
+                <strong>Courts:</strong> ${l.courts.map(escapeHtml).join(', ')}
             </div>
             <div class="lawyer-match">
                 <strong style="color: var(--text-primary)">Why this lawyer matches your case:</strong>
-                ${l.matchReasons.map(r => `<div class="match-reason">✓ ${r}</div>`).join('')}
+                ${l.matchReasons.map(r => `<div class="match-reason">✓ ${escapeHtml(r)}</div>`).join('')}
             </div>
             <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4)">
-                <button class="btn btn-primary btn-sm" data-navigate="/lawyer-profile?id=${l.id}">View Profile</button>
+                <button class="btn btn-primary btn-sm" data-navigate="/lawyer-profile?id=${escapeHtml(encodeURIComponent(l.id))}">View Profile</button>
                 <button class="btn btn-outline btn-sm">Request Consultation</button>
             </div>
         </div>

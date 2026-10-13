@@ -2,7 +2,7 @@
  * NyaySetu — Notifications Page
  * Connects to the real /api/notifications endpoints.
  */
-import { navbar, icons, badge, showToast } from '../components.js';
+import { navbar, icons, badge, showToast, escapeHtml } from '../components.js';
 import { getRole, isAuthenticated } from '../state.js';
 import * as api from '../api.js';
 
@@ -107,10 +107,22 @@ async function loadNotifications() {
                 }
             });
         });
+        container.querySelectorAll('.notification-item[data-link]').forEach(item => {
+            const navigate = () => { window.location.hash = item.dataset.link; };
+            item.addEventListener('click', event => {
+                if (!event.target.closest('.notification-mark-read')) navigate();
+            });
+            item.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigate();
+                }
+            });
+        });
     } catch (err) {
         container.innerHTML = `
             <div class="card" style="padding: var(--space-6); text-align: center; color: var(--text-secondary)">
-                Failed to load notifications: ${err.message}
+                Failed to load notifications: ${escapeHtml(err.message)}
             </div>`;
     }
 }
@@ -121,18 +133,19 @@ function renderGroup(title, items, isUnread) {
         <h3 class="section-title" style="margin-bottom: var(--space-3)">${title} ${isUnread ? `<span class="badge badge-primary" style="margin-left: var(--space-2)">${items.length}</span>` : ''}</h3>
         <div class="card" style="padding: 0; overflow: hidden">
             ${items.map(n => {
-                const icon = getNotifIcon(n.action);
+                const icon = getNotifIcon(n.type);
                 const timeAgo = formatTimeAgo(n.created_at);
+                const link = safeInternalLink(n.link);
                 return `
-                <div class="notification-item ${!n.is_read ? 'unread' : ''}">
+                <div class="notification-item ${!n.is_read ? 'unread' : ''}" ${link ? `data-link="${escapeHtml(link)}" role="link" tabindex="0"` : ''}>
                     <div class="notification-icon" style="background: ${!n.is_read ? 'var(--primary-50)' : 'var(--neutral-100)'}">${icon}</div>
                     <div class="notification-content">
-                        <div class="notification-title">${n.title || n.action || 'Notification'}</div>
-                        <div class="notification-body">${n.message || ''}</div>
+                        <div class="notification-title">${escapeHtml(n.title || 'Notification')}</div>
+                        <div class="notification-body">${escapeHtml(n.body || '')}</div>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1)">
-                        <div class="notification-time">${timeAgo}</div>
-                        ${!n.is_read ? `<button class="btn btn-ghost btn-sm notification-mark-read" data-notif-id="${n.id}" title="Mark as read">${icons.check}</button>` : ''}
+                        <div class="notification-time">${escapeHtml(timeAgo)}</div>
+                        ${!n.is_read ? `<button class="btn btn-ghost btn-sm notification-mark-read" data-notif-id="${escapeHtml(n.id)}" title="Mark as read">${icons.check}</button>` : ''}
                     </div>
                 </div>`;
             }).join('')}
@@ -140,15 +153,15 @@ function renderGroup(title, items, isUnread) {
     </div>`;
 }
 
-function getNotifIcon(action) {
-    if (!action) return '🔔';
-    if (action.includes('case')) return '📋';
-    if (action.includes('document')) return '📄';
-    if (action.includes('evidence')) return '🔍';
-    if (action.includes('court') || action.includes('hearing')) return '🏛️';
-    if (action.includes('blockchain')) return '🔗';
-    if (action.includes('investigation')) return '🔎';
-    return '🔔';
+function safeInternalLink(link) {
+    if (typeof link !== 'string') return '';
+    if (link.startsWith('#/')) return link;
+    if (link.startsWith('/') && !link.startsWith('//') && !link.includes('\\')) return link;
+    return '';
+}
+
+function getNotifIcon(type) {
+    return ({ info: 'ℹ️', warning: '⚠️', urgent: '🚨', success: '✅' })[type] || '🔔';
 }
 
 function formatTimeAgo(iso) {

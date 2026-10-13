@@ -1,7 +1,7 @@
 /**
  * NyaySetu — Bail Assessment Page
  */
-import { navbar, icons, badge, aiBadge, disclaimer, accordion, alert } from '../components.js';
+import { navbar, icons, badge, aiBadge, disclaimer, accordion, alert, escapeHtml } from '../components.js';
 import { getRole, getCurrentCase } from '../state.js';
 import * as api from '../api.js';
 
@@ -11,12 +11,6 @@ function checklistStorageKey() {
     const caseId = caseData.case_id || caseData.caseId || caseData.id;
     const fingerprint = caseId || [input.sections, input.specialLaws, input.arrestDate, input.bailType].filter(Boolean).join('-') || 'current';
     return `nyaysetu_checklist_${fingerprint}`;
-}
-
-function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    })[char]);
 }
 
 function renderReadinessChecklist(items, container) {
@@ -30,15 +24,15 @@ function renderReadinessChecklist(items, container) {
     container.innerHTML = `
         <p style="color: var(--text-secondary); font-size: var(--text-sm); margin-bottom: var(--space-4)">Track what you have gathered. Your progress is saved in this browser for this case.</p>
         <div style="display:flex; justify-content:space-between; align-items:center; gap:var(--space-3); margin-bottom:var(--space-2)">
-            <span id="readiness-count" style="font-size:var(--text-sm); font-weight:600">${completed} of ${safeItems.length} complete</span>
+            <span id="readiness-count" style="font-size:var(--text-sm); font-weight:600">${escapeHtml(completed)} of ${escapeHtml(safeItems.length)} complete</span>
             <button type="button" class="btn btn-outline btn-sm" id="copy-readiness-checklist">Copy checklist</button>
         </div>
-        <div role="progressbar" aria-label="Checklist progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}" style="height:8px; background:var(--neutral-100); border-radius:999px; overflow:hidden; margin-bottom:var(--space-3)">
-            <div id="readiness-progress" style="width:${progress}%; height:100%; background:var(--success-500); transition:width .2s"></div>
+        <div role="progressbar" aria-label="Checklist progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${escapeHtml(progress)}" style="height:8px; background:var(--neutral-100); border-radius:999px; overflow:hidden; margin-bottom:var(--space-3)">
+            <div id="readiness-progress" style="width:${escapeHtml(progress)}%; height:100%; background:var(--success-500); transition:width .2s"></div>
         </div>
         ${safeItems.map(item => `
             <label style="display:flex; align-items:flex-start; gap:var(--space-3); padding:var(--space-3) 0; border-bottom:1px solid var(--neutral-100); cursor:pointer">
-                <input type="checkbox" data-checklist-index="${item.checklistIndex}" ${checked[item.checklistIndex] ? 'checked' : ''} style="margin-top:3px; accent-color:var(--primary-600)">
+                <input type="checkbox" data-checklist-index="${escapeHtml(item.checklistIndex)}" ${checked[item.checklistIndex] ? 'checked' : ''} style="margin-top:3px; accent-color:var(--primary-600)">
                 <span style="font-size:var(--text-sm)">${escapeHtml(item.requirement)} ${item.is_mandatory ? '<span class="badge badge-danger" style="margin-left:var(--space-2)">Listed as mandatory</span>' : ''}</span>
             </label>`).join('')}
         <p style="font-size:var(--text-xs); color:var(--text-tertiary); margin-top:var(--space-3)">Checklist items are general prompts from the local reference dataset. Confirm requirements for your court, case, and current law with a lawyer.</p>`;
@@ -142,8 +136,8 @@ export function render() {
                         <!-- Custody Analysis -->
                         <div class="assessment-card">
                             <div class="ac-title">${icons.clock} Custody Analysis</div>
-                            <div class="ac-row"><span class="ac-label">Date of Arrest</span><span class="ac-value">${input.arrestDate || 'Not provided'}</span></div>
-                            <div class="ac-row"><span class="ac-label">Current Custody</span><span class="ac-value"><strong>${input.arrestDate ? `${custodyDays} days` : 'Not calculated'}</strong></span></div>
+                            <div class="ac-row"><span class="ac-label">Date of Arrest</span><span class="ac-value">${escapeHtml(input.arrestDate || 'Not provided')}</span></div>
+                            <div class="ac-row"><span class="ac-label">Current Custody</span><span class="ac-value"><strong>${input.arrestDate ? `${escapeHtml(custodyDays)} days` : 'Not calculated'}</strong></span></div>
                             <div class="ac-row"><span class="ac-label">Relevant Threshold</span><span class="ac-value">Depends on the applicable statute and case facts</span></div>
                             <div class="ac-row"><span class="ac-label">Threshold Status</span><span class="ac-value">${badge('Requires legal verification', 'warning')}</span></div>
                         </div>
@@ -160,7 +154,7 @@ export function render() {
                         <div class="assessment-card">
                             <div class="ac-title">${icons.doc} Special Statutes</div>
                             ${input.specialLaws ? `
-                                <div class="ac-row"><span class="ac-label">Special Act</span><span class="ac-value">${input.specialLaws}</span></div>
+                                <div class="ac-row"><span class="ac-label">Special Act</span><span class="ac-value">${escapeHtml(input.specialLaws)}</span></div>
                                 <div class="ac-row"><span class="ac-label">Restrictions</span><span class="ac-value">${badge('May Apply', 'warning')}</span></div>
                             ` : `
                                 <div style="padding: var(--space-4); text-align: center; color: var(--text-secondary); font-size: var(--text-sm)">
@@ -190,16 +184,16 @@ export function render() {
                         ${assessment.triggers.map(t => `
                             <div style="display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--neutral-100)">
                                 <span style="color: var(--warning-500); flex-shrink: 0">⚠</span>
-                                <span style="font-size: var(--text-sm)">${t}</span>
+                                <span style="font-size: var(--text-sm)">${escapeHtml(t)}</span>
                             </div>`).join('')}
                     </div>` : ''}
 
                     <!-- Reasoning Section -->
                     <div class="reasoning-section" style="margin-top: var(--space-6)">
-                        <div class="reasoning-header" onclick="document.getElementById('reasoning-body').style.display = document.getElementById('reasoning-body').style.display === 'none' ? 'block' : 'none'">
+                        <button type="button" class="reasoning-header" id="reasoning-toggle">
                             <h3 style="font-size: var(--text-md)">${icons.bulb} Why did the system reach this assessment?</h3>
                             <span>▾</span>
-                        </div>
+                        </button>
                         <div class="reasoning-body" id="reasoning-body">
                             <div class="reasoning-item">
                                 <span style="color: var(--text-secondary); font-weight: 500">Relevant Provision</span>
@@ -260,6 +254,11 @@ export function render() {
 }
 
 export async function init() {
+    document.getElementById('reasoning-toggle')?.addEventListener('click', () => {
+        const body = document.getElementById('reasoning-body');
+        body.style.display = body.style.display === 'none' ? 'block' : 'none';
+    });
+
     // Load custody rules from API
     try {
         const { rules } = await api.getCustodyRules();
@@ -267,14 +266,14 @@ export async function init() {
         if (rules && rules.length > 0) {
             container.innerHTML = rules.map(r => `
                 <div style="padding: var(--space-4); border-bottom: 1px solid var(--neutral-100)">
-                    <div style="font-weight: var(--weight-semibold); margin-bottom: var(--space-1)">${r.rule_name}</div>
-                    <div style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-2)">${r.description}</div>
+                    <div style="font-weight: var(--weight-semibold); margin-bottom: var(--space-1)">${escapeHtml(r.rule_name)}</div>
+                        <div style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-2)">${escapeHtml(r.description)}</div>
                     <div style="display: flex; gap: var(--space-3); flex-wrap: wrap; font-size: var(--text-xs)">
                         ${badge(r.source_provision, 'info')}
                         ${badge('Threshold: ' + (r.threshold_fraction * 100) + '%', 'primary')}
                         ${badge('Applies to: ' + r.applies_to, 'neutral')}
                     </div>
-                    ${r.exclusion_notes ? `<div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-2)">${icons.warning} ${r.exclusion_notes}</div>` : ''}
+                    ${r.exclusion_notes ? `<div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-2)">${icons.warning} ${escapeHtml(r.exclusion_notes)}</div>` : ''}
                 </div>
             `).join('');
         } else {

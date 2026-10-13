@@ -1,7 +1,7 @@
 /**
  * NyaySetu — Legal Provisions Search Page
  */
-import { navbar, icons, badge, provisionCard, aiBadge, disclaimer, showToast } from '../components.js';
+import { navbar, icons, badge, provisionCard, aiBadge, disclaimer, showToast, escapeHtml } from '../components.js';
 import { getRole } from '../state.js';
 import * as api from '../api.js';
 
@@ -58,11 +58,11 @@ export async function init() {
         const { categories, acts } = await api.getProvisionCategories();
         const catSelect = document.getElementById('prov-category');
         categories.forEach(c => {
-            catSelect.innerHTML += `<option value="${c}">${c.charAt(0).toUpperCase() + c.slice(1)}</option>`;
+            catSelect.innerHTML += `<option value="${escapeHtml(c)}">${escapeHtml(c.charAt(0).toUpperCase() + c.slice(1))}</option>`;
         });
         const actSelect = document.getElementById('prov-act');
         acts.forEach(a => {
-            actSelect.innerHTML += `<option value="${a}">${a}</option>`;
+            actSelect.innerHTML += `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`;
         });
     } catch (e) { /* ignore */ }
 
@@ -99,12 +99,12 @@ async function searchProvisions() {
 
         container.innerHTML = `
             <div style="margin-bottom: var(--space-4); font-size: var(--text-sm); color: var(--text-secondary)">
-                Found <strong>${count}</strong> provision${count !== 1 ? 's' : ''}
+                Found <strong>${escapeHtml(count)}</strong> provision${count !== 1 ? 's' : ''}
             </div>
             <div style="display: grid; gap: var(--space-4)">
                 ${provisions.map(p => provisionCard(p)).join('')}
             </div>`;
     } catch (e) {
-        container.innerHTML = `<div class="alert alert-danger">${icons.danger} Failed to load provisions: ${e.message}</div>`;
+        container.innerHTML = `<div class="alert alert-danger">${icons.danger} Failed to load provisions: ${escapeHtml(e.message)}</div>`;
     }
 }

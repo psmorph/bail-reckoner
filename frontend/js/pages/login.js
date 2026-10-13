@@ -2,7 +2,7 @@
  * NyaySetu — Login Page
  * Supports both platform authentication (JWT) and legacy role selection.
  */
-import { icons } from '../components.js';
+import { icons, escapeHtml } from '../components.js';
 import { setRole, setAuth, isAuthenticated, getAuthUser } from '../state.js';
 import * as api from '../api.js';
 
@@ -38,12 +38,12 @@ export function render() {
             ${authenticated ? `
                 <div class="card" style="text-align: center; margin-bottom: var(--space-6)">
                     <div style="font-size: 48px; margin-bottom: var(--space-3)">👤</div>
-                    <div style="font-weight: var(--weight-semibold); font-size: var(--text-lg)">${user.full_name}</div>
-                    <div style="color: var(--text-secondary); margin-bottom: var(--space-2)">${user.email}</div>
-                    <span class="badge badge-primary badge-lg">${user.role_name}</span>
-                    ${user.organization_name ? `<div style="color: var(--text-tertiary); margin-top: var(--space-2); font-size: var(--text-sm)">${user.organization_name}</div>` : ''}
+                    <div style="font-weight: var(--weight-semibold); font-size: var(--text-lg)">${escapeHtml(user.full_name)}</div>
+                    <div style="color: var(--text-secondary); margin-bottom: var(--space-2)">${escapeHtml(user.email)}</div>
+                    <span class="badge badge-primary badge-lg">${escapeHtml(user.role_name)}</span>
+                    ${user.organization_name ? `<div style="color: var(--text-tertiary); margin-top: var(--space-2); font-size: var(--text-sm)">${escapeHtml(user.organization_name)}</div>` : ''}
                     <div style="display: flex; gap: var(--space-3); justify-content: center; margin-top: var(--space-5)">
-                        <button class="btn btn-primary" id="continue-session-btn">Continue as ${user.full_name.split(' ')[0]} →</button>
+                        <button class="btn btn-primary" id="continue-session-btn">Continue as ${escapeHtml((user.full_name || '').split(' ')[0])} →</button>
                         <button class="btn btn-outline" id="switch-account-btn">Switch Account</button>
                     </div>
                 </div>

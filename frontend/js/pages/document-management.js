@@ -2,7 +2,7 @@
  * NyaySetu — Document Management Page
  * Connects to the real /api/documents endpoints with upload, verify, download.
  */
-import { navbar, icons, badge, showToast } from '../components.js';
+import { navbar, icons, badge, showToast, escapeHtml } from '../components.js';
 import { getRole, isAuthenticated, getAuthUser } from '../state.js';
 import * as api from '../api.js';
 
@@ -112,14 +112,14 @@ async function loadDocuments() {
 
         // Update stats
         document.getElementById('stat-total').textContent = documents.length.toString();
-        document.getElementById('stat-verified').textContent = documents.filter(d => d.integrity_verified).length.toString();
+        document.getElementById('stat-verified').textContent = documents.filter(d => d.verification_status === 'verified').length.toString();
         document.getElementById('stat-encrypted').textContent = documents.filter(d => d.encrypted).length.toString();
         document.getElementById('stat-blockchain').textContent = documents.filter(d => d.blockchain_tx_id).length.toString();
 
         renderDocList();
     } catch (err) {
         container.innerHTML = `<div class="card" style="padding: var(--space-6); text-align: center; color: var(--text-secondary)">
-            Failed to load documents: ${err.message}. Make sure you're logged in.
+            ${err.status === 404 ? 'Document not found or you do not have access.' : `Failed to load documents: ${escapeHtml(err.message)}. Make sure you're logged in.`}
         </div>`;
     }
 }
@@ -134,7 +134,7 @@ function renderDocList() {
                 <div style="font-size: 48px; margin-bottom: var(--space-3)">📂</div>
                 <h3>No Documents Found</h3>
                 <p style="color: var(--text-secondary); margin-top: var(--space-2)">
-                    ${activeFilter === 'all' ? 'Upload your first document to get started.' : `No ${activeFilter.replace('_', ' ')} documents found.`}
+                    ${activeFilter === 'all' ? 'Upload your first document to get started.' : `No ${escapeHtml(activeFilter.replace('_', ' '))} documents found.`}
                 </p>
                 <button class="btn btn-primary" style="margin-top: var(--space-4)" id="btn-upload-empty">${icons.upload} Upload Document</button>
             </div>`;
@@ -210,31 +210,31 @@ function renderDocList() {
 
 function renderDocCard(doc) {
     const typeLabel = (doc.doc_type || 'document').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    const ext = (doc.original_filename || '').split('.').pop()?.toUpperCase() || 'FILE';
+    const ext = (doc.original_name || '').split('.').pop()?.toUpperCase() || 'FILE';
     const typeIcon = ext === 'PDF' ? '📕' : ext === 'JPG' || ext === 'JPEG' || ext === 'PNG' ? '🖼️' : '📄';
-    const dateStr = formatDate(doc.uploaded_at);
+    const dateStr = formatDate(doc.created_at);
     const sizeStr = formatSize(doc.file_size);
 
     return `
-    <div class="doc-card" style="cursor: pointer" data-navigate="/case-details/${doc.case_id}">
+    <div class="doc-card" style="cursor: pointer" ${doc.case_id ? `data-navigate="/case-details/${escapeHtml(encodeURIComponent(doc.case_id))}"` : ''}>
         <div class="doc-icon" style="font-size: 24px">${typeIcon}</div>
         <div class="doc-info" style="flex: 1; min-width: 0">
             <div class="doc-name" style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">
-                ${doc.original_filename || doc.id}
+                ${escapeHtml(doc.original_name || doc.id)}
             </div>
             <div class="doc-meta" style="font-size: var(--text-xs); color: var(--text-tertiary)">
                 ${badge(typeLabel, 'info')}
-                ${sizeStr} • ${dateStr}
-                ${doc.case_id ? ` • ${doc.case_id}` : ''}
+                ${escapeHtml(sizeStr)} • ${escapeHtml(dateStr)}
+                ${doc.case_id ? ` • ${escapeHtml(doc.case_id)}` : ''}
             </div>
         </div>
         <div class="doc-actions" style="display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap">
             ${doc.encrypted ? badge('Encrypted', 'success') : ''}
             ${doc.blockchain_tx_id ? badge('On-Chain', 'primary') : ''}
-            ${doc.integrity_verified ? badge('Verified', 'success') : badge('Unverified', 'warning')}
-            <button class="btn btn-ghost btn-sm doc-verify-btn" data-doc-id="${doc.id}" title="Verify integrity">${icons.shield} Verify</button>
-            ${!doc.blockchain_tx_id ? `<button class="btn btn-ghost btn-sm doc-blockchain-btn" data-doc-id="${doc.id}" data-case-id="${doc.case_id || ''}" title="Register on blockchain">${icons.link} Register</button>` : ''}
-            <button class="btn btn-ghost btn-sm doc-download-btn" data-doc-id="${doc.id}" title="Download">${icons.download}</button>
+            ${doc.verification_status === 'verified' ? badge('Verified', 'success') : badge('Unverified', 'warning')}
+            <button class="btn btn-ghost btn-sm doc-verify-btn" data-doc-id="${escapeHtml(doc.id)}" title="Verify integrity">${icons.shield} Verify</button>
+            ${!doc.blockchain_tx_id ? `<button class="btn btn-ghost btn-sm doc-blockchain-btn" data-doc-id="${escapeHtml(doc.id)}" data-case-id="${escapeHtml(doc.case_id || '')}" title="Register on blockchain">${icons.link} Register</button>` : ''}
+            <button class="btn btn-ghost btn-sm doc-download-btn" data-doc-id="${escapeHtml(doc.id)}" title="Download">${icons.download}</button>
         </div>
     </div>`;
 }

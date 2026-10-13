@@ -3,7 +3,7 @@
  * Central case workspace with tabbed sections for documents, evidence,
  * investigation, forensic, court, blockchain, and audit trail.
  */
-import { navbar, icons, badge, statCard, showToast, disclaimer, aiBadge, dataTable } from '../components.js';
+import { navbar, icons, badge, statCard, showToast, disclaimer, aiBadge, dataTable, escapeHtml } from '../components.js';
 import { getRole, getAuthUser, isAuthenticated, hasPermission } from '../state.js';
 import * as api from '../api.js';
 
@@ -21,8 +21,14 @@ const TABS = [
 
 function getCaseId() {
     const hash = window.location.hash;
-    const match = hash.match(/case-details\/(.+)/);
-    return match ? match[1] : '';
+    const match = hash.match(/case-details\/([^?]+)/);
+    if (!match) return '';
+    try {
+        const caseId = decodeURIComponent(match[1]);
+        return /^[A-Za-z0-9\-_]+$/.test(caseId) ? caseId : '';
+    } catch {
+        return '';
+    }
 }
 
 export function render() {
@@ -103,8 +109,8 @@ export async function init() {
         document.getElementById('tab-content').innerHTML = `
             <div style="text-align: center; padding: var(--space-10)">
                 <div style="font-size: 48px; margin-bottom: var(--space-4)">⚠️</div>
-                <h3>Unable to load case</h3>
-                <p style="color: var(--text-secondary); margin-top: var(--space-2)">${err.message}</p>
+                <h3>${err.status === 404 ? 'Case not found or you do not have access' : 'Unable to load case'}</h3>
+                        <p style="color: var(--text-secondary); margin-top: var(--space-2)">${escapeHtml(err.message)}</p>
                 <button class="btn btn-primary" style="margin-top: var(--space-4)" data-navigate="/case-search">Back to Cases</button>
             </div>`;
     }
@@ -113,12 +119,12 @@ export async function init() {
 function renderCaseHeader() {
     const c = caseData.case;
     document.getElementById('case-breadcrumb').textContent = c.id;
-    document.getElementById('case-title').innerHTML = `${c.title} <span style="font-size: var(--text-sm); color: var(--text-tertiary); font-weight: normal">${c.id}</span>`;
+    document.getElementById('case-title').innerHTML = `${escapeHtml(c.title)} <span style="font-size: var(--text-sm); color: var(--text-tertiary); font-weight: normal">${escapeHtml(c.id)}</span>`;
     document.getElementById('case-subtitle').innerHTML = `
         ${badge(c.status, c.status === 'active' ? 'success' : 'danger')}
         ${badge(c.priority, c.priority === 'high' ? 'warning' : 'primary')}
         ${c.fir_number ? badge('FIR: ' + c.fir_number, 'info') : ''}
-        <span style="color: var(--text-tertiary); margin-left: var(--space-2)">${caseData.organization_name || ''}</span>
+        <span style="color: var(--text-tertiary); margin-left: var(--space-2)">${escapeHtml(caseData.organization_name || '')}</span>
     `;
 
     document.getElementById('case-actions').innerHTML = `
@@ -161,22 +167,22 @@ function renderOverview() {
         <div>
             <h3 style="margin-bottom: var(--space-4)">Case Information</h3>
             <div class="detail-grid">
-                <div class="detail-row"><span class="detail-label">Case ID</span><span class="detail-value">${c.id}</span></div>
-                <div class="detail-row"><span class="detail-label">FIR Number</span><span class="detail-value">${c.fir_number || '—'}</span></div>
-                <div class="detail-row"><span class="detail-label">Case Type</span><span class="detail-value">${c.case_type || 'Criminal'}</span></div>
-                <div class="detail-row"><span class="detail-label">Sections</span><span class="detail-value">${c.sections || '—'}</span></div>
-                <div class="detail-row"><span class="detail-label">Special Laws</span><span class="detail-value">${c.special_laws || '—'}</span></div>
-                <div class="detail-row"><span class="detail-label">Accused</span><span class="detail-value">${c.accused_name || '—'}</span></div>
-                <div class="detail-row"><span class="detail-label">Complainant</span><span class="detail-value">${c.complainant_name || '—'}</span></div>
-                <div class="detail-row"><span class="detail-label">Police Station</span><span class="detail-value">${c.police_station || '—'}</span></div>
-                <div class="detail-row"><span class="detail-label">District / State</span><span class="detail-value">${c.district || '—'}, ${c.state || '—'}</span></div>
-                <div class="detail-row"><span class="detail-label">Created By</span><span class="detail-value">${caseData.creator_name || '—'}</span></div>
-                <div class="detail-row"><span class="detail-label">Created</span><span class="detail-value">${formatDate(c.created_at)}</span></div>
+                <div class="detail-row"><span class="detail-label">Case ID</span><span class="detail-value">${escapeHtml(c.id)}</span></div>
+                <div class="detail-row"><span class="detail-label">FIR Number</span><span class="detail-value">${escapeHtml(c.fir_number || '—')}</span></div>
+                <div class="detail-row"><span class="detail-label">Case Type</span><span class="detail-value">${escapeHtml(c.case_type || 'Criminal')}</span></div>
+                <div class="detail-row"><span class="detail-label">Sections</span><span class="detail-value">${escapeHtml(c.sections || '—')}</span></div>
+                <div class="detail-row"><span class="detail-label">Special Laws</span><span class="detail-value">${escapeHtml(c.special_laws || '—')}</span></div>
+                <div class="detail-row"><span class="detail-label">Accused</span><span class="detail-value">${escapeHtml(c.accused_name || '—')}</span></div>
+                <div class="detail-row"><span class="detail-label">Complainant</span><span class="detail-value">${escapeHtml(c.complainant_name || '—')}</span></div>
+                <div class="detail-row"><span class="detail-label">Police Station</span><span class="detail-value">${escapeHtml(c.police_station || '—')}</span></div>
+                <div class="detail-row"><span class="detail-label">District / State</span><span class="detail-value">${escapeHtml(c.district || '—')}, ${escapeHtml(c.state || '—')}</span></div>
+                <div class="detail-row"><span class="detail-label">Created By</span><span class="detail-value">${escapeHtml(caseData.creator_name || '—')}</span></div>
+                <div class="detail-row"><span class="detail-label">Created</span><span class="detail-value">${escapeHtml(formatDate(c.created_at))}</span></div>
             </div>
             ${c.description ? `
                 <h4 style="margin-top: var(--space-6); margin-bottom: var(--space-3)">Description</h4>
                 <div class="card" style="background: var(--neutral-50); padding: var(--space-4)">
-                    <p style="white-space: pre-wrap; line-height: 1.7">${c.description}</p>
+                    <p style="white-space: pre-wrap; line-height: 1.7">${escapeHtml(c.description)}</p>
                 </div>
             ` : ''}
         </div>
@@ -196,8 +202,8 @@ function renderOverview() {
                     <div class="mini-card" style="margin-bottom: var(--space-2)">
                         <span class="mini-card-icon">📄</span>
                         <div>
-                            <div style="font-weight: var(--weight-medium); font-size: var(--text-sm)">${d.original_name}</div>
-                            <div style="font-size: var(--text-xs); color: var(--text-tertiary)">${d.doc_type} · ${formatBytes(d.file_size)} · ${badge(d.verification_status, d.verification_status === 'verified' ? 'success' : d.verification_status === 'blockchain_registered' ? 'primary' : 'warning')}</div>
+                            <div style="font-weight: var(--weight-medium); font-size: var(--text-sm)">${escapeHtml(d.original_name)}</div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary)">${escapeHtml(d.doc_type)} · ${escapeHtml(formatBytes(d.file_size))} · ${badge(d.verification_status, d.verification_status === 'verified' ? 'success' : d.verification_status === 'blockchain_registered' ? 'primary' : 'warning')}</div>
                         </div>
                     </div>
                 `).join('')}
@@ -224,24 +230,24 @@ function renderDocuments() {
     ` : `
         <div class="doc-grid">
             ${docs.map(d => `
-                <div class="doc-card" data-doc-id="${d.id}">
+                <div class="doc-card" data-doc-id="${escapeHtml(d.id)}">
                     <div class="doc-card-header">
                         <div class="doc-icon">${getDocIcon(d.mime_type)}</div>
                         <div class="doc-actions">
-                            <button class="btn btn-ghost btn-xs btn-verify" data-doc-id="${d.id}" title="Verify Integrity">${icons.lock}</button>
-                            <button class="btn btn-ghost btn-xs btn-blockchain" data-doc-id="${d.id}" title="Register on Blockchain">🔗</button>
-                            <button class="btn btn-ghost btn-xs btn-download" data-doc-id="${d.id}" title="Download">⬇️</button>
+                            <button class="btn btn-ghost btn-xs btn-verify" data-doc-id="${escapeHtml(d.id)}" title="Verify Integrity">${icons.lock}</button>
+                            <button class="btn btn-ghost btn-xs btn-blockchain" data-doc-id="${escapeHtml(d.id)}" title="Register on Blockchain">🔗</button>
+                            <button class="btn btn-ghost btn-xs btn-download" data-doc-id="${escapeHtml(d.id)}" title="Download">⬇️</button>
                         </div>
                     </div>
-                    <div class="doc-name">${d.original_name}</div>
-                    <div class="doc-meta">${d.doc_type} · ${formatBytes(d.file_size)}</div>
-                    <div class="doc-meta">Uploaded by ${d.uploader_name || 'Unknown'}</div>
-                    <div class="doc-meta">${formatDate(d.created_at)}</div>
+                    <div class="doc-name">${escapeHtml(d.original_name)}</div>
+                    <div class="doc-meta">${escapeHtml(d.doc_type)} · ${escapeHtml(formatBytes(d.file_size))}</div>
+                    <div class="doc-meta">Uploaded by ${escapeHtml(d.uploader_name || 'Unknown')}</div>
+                    <div class="doc-meta">${escapeHtml(formatDate(d.created_at))}</div>
                     <div class="doc-footer">
                         ${badge(d.verification_status, d.verification_status === 'verified' ? 'success' : d.verification_status === 'blockchain_registered' ? 'primary' : 'warning')}
                         ${d.encrypted ? badge('Encrypted', 'info') : ''}
                     </div>
-                    <div class="doc-hash" title="${d.sha256_hash}">SHA-256: ${d.sha256_hash?.substring(0, 16)}...</div>
+                    <div class="doc-hash" title="${escapeHtml(d.sha256_hash)}">SHA-256: ${escapeHtml(d.sha256_hash?.substring(0, 16))}...</div>
                 </div>
             `).join('')}
         </div>
@@ -327,13 +333,13 @@ function renderEvidence() {
                 <div class="card" style="padding: var(--space-4); display: flex; align-items: center; gap: var(--space-4)">
                     <div style="font-size: 28px; flex-shrink: 0">${ev.evidence_type === 'digital' ? '💾' : ev.evidence_type === 'documentary' ? '📄' : '🔍'}</div>
                     <div style="flex: 1">
-                        <div style="font-weight: var(--weight-semibold)">${ev.description || 'Evidence Item'}</div>
+                        <div style="font-weight: var(--weight-semibold)">${escapeHtml(ev.description || 'Evidence Item')}</div>
                         <div style="font-size: var(--text-sm); color: var(--text-secondary)">
-                            Type: ${ev.evidence_type} · Status: ${badge(ev.status, 'primary')} · Forensic: ${badge(ev.forensic_status, ev.forensic_status === 'completed' ? 'success' : 'warning')}
+                            Type: ${escapeHtml(ev.evidence_type)} · Status: ${badge(ev.status, 'primary')} · Forensic: ${badge(ev.forensic_status, ev.forensic_status === 'completed' ? 'success' : 'warning')}
                         </div>
                     </div>
                     <div style="text-align: right; font-size: var(--text-xs); color: var(--text-tertiary)">
-                        ${formatDate(ev.created_at)}
+                        ${escapeHtml(formatDate(ev.created_at))}
                     </div>
                 </div>
             `).join('')}
@@ -368,20 +374,20 @@ async function loadTimeline() {
         container.innerHTML = `<div class="timeline-vertical">
             ${events.map((ev, i) => `
                 <div class="timeline-event">
-                    <div class="timeline-dot ${ev.type}"></div>
+                    <div class="timeline-dot ${escapeHtml(ev.type)}"></div>
                     <div class="timeline-line ${i === events.length - 1 ? 'last' : ''}"></div>
                     <div class="timeline-card">
-                        <div class="timeline-date">${formatDate(ev.date)}</div>
-                        <div class="timeline-title">${ev.title}</div>
-                        <div class="timeline-actor">${ev.actor}${ev.role ? ` · ${ev.role}` : ''}</div>
-                        ${ev.description ? `<div class="timeline-desc">${ev.description}</div>` : ''}
+                        <div class="timeline-date">${escapeHtml(formatDate(ev.date))}</div>
+                        <div class="timeline-title">${escapeHtml(ev.title)}</div>
+                        <div class="timeline-actor">${escapeHtml(ev.actor)}${ev.role ? ` · ${escapeHtml(ev.role)}` : ''}</div>
+                        ${ev.description ? `<div class="timeline-desc">${escapeHtml(ev.description)}</div>` : ''}
                         ${ev.integrity ? `<div style="margin-top: var(--space-1)">${badge(ev.integrity, ev.integrity === 'verified' ? 'success' : 'warning')}</div>` : ''}
                     </div>
                 </div>
             `).join('')}
         </div>`;
     } catch (err) {
-        document.getElementById('timeline-content').innerHTML = `<p style="color: var(--text-secondary)">Failed to load timeline: ${err.message}</p>`;
+        document.getElementById('timeline-content').innerHTML = `<p style="color: var(--text-secondary)">${err.status === 404 ? 'Case not found or you do not have access.' : `Failed to load timeline: ${escapeHtml(err.message)}`}</p>`;
     }
 }
 
@@ -405,15 +411,15 @@ function renderBlockchain() {
             ${records.map(b => `
                 <div class="card blockchain-block" style="padding: var(--space-4)">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3)">
-                        <span style="font-weight: var(--weight-bold); font-size: var(--text-lg)">Block #${b.block_index}</span>
+                        <span style="font-weight: var(--weight-bold); font-size: var(--text-lg)">Block #${escapeHtml(b.block_index)}</span>
                         ${badge(b.status, 'success')}
                     </div>
-                    <div class="block-detail"><span class="block-label">Block Hash</span><code class="block-hash">${b.block_hash}</code></div>
-                    <div class="block-detail"><span class="block-label">Previous Hash</span><code class="block-hash">${b.previous_hash}</code></div>
-                    <div class="block-detail"><span class="block-label">Document Hash</span><code class="block-hash">${b.sha256_hash}</code></div>
-                    <div class="block-detail"><span class="block-label">Nonce</span><span>${b.nonce}</span></div>
-                    <div class="block-detail"><span class="block-label">Authority</span><span>${b.authority} (${b.authority_type})</span></div>
-                    <div class="block-detail"><span class="block-label">Timestamp</span><span>${formatDate(b.timestamp)}</span></div>
+                    <div class="block-detail"><span class="block-label">Block Hash</span><code class="block-hash">${escapeHtml(b.block_hash)}</code></div>
+                    <div class="block-detail"><span class="block-label">Previous Hash</span><code class="block-hash">${escapeHtml(b.previous_hash)}</code></div>
+                    <div class="block-detail"><span class="block-label">Document Hash</span><code class="block-hash">${escapeHtml(b.sha256_hash)}</code></div>
+                    <div class="block-detail"><span class="block-label">Nonce</span><span>${escapeHtml(b.nonce)}</span></div>
+                    <div class="block-detail"><span class="block-label">Authority</span><span>${escapeHtml(b.authority)} (${escapeHtml(b.authority_type)})</span></div>
+                    <div class="block-detail"><span class="block-label">Timestamp</span><span>${escapeHtml(formatDate(b.timestamp))}</span></div>
                 </div>
             `).join('')}
         </div>
@@ -430,11 +436,11 @@ function initBlockchainHandlers() {
             statusDiv.innerHTML = result.valid
                 ? `<div class="alert alert-success" style="margin-bottom: var(--space-4)">
                        <span class="alert-icon">✅</span>
-                       <div class="alert-content">Chain integrity verified! ${result.blocks_checked} blocks checked, zero violations.</div>
+                       <div class="alert-content">Chain integrity verified! ${escapeHtml(result.blocks_checked)} blocks checked, zero violations.</div>
                    </div>`
                 : `<div class="alert alert-danger" style="margin-bottom: var(--space-4)">
                        <span class="alert-icon">⚠️</span>
-                       <div class="alert-content">CHAIN INTEGRITY VIOLATION! ${result.violations.length} violation(s) detected across ${result.blocks_checked} blocks.</div>
+                       <div class="alert-content">CHAIN INTEGRITY VIOLATION! ${escapeHtml(result.violations.length)} violation(s) detected across ${escapeHtml(result.blocks_checked)} blocks.</div>
                    </div>`;
             btn.innerHTML = `${icons.lock} Verify Full Chain`;
         } catch (err) {
@@ -462,9 +468,9 @@ function renderAudit() {
                 </tr></thead>
                 <tbody>
                     ${logs.map(l => `<tr>
-                        <td style="font-size: var(--text-xs); white-space: nowrap">${formatDate(l.created_at)}</td>
-                        <td><code style="font-size: var(--text-xs)">${l.action}</code></td>
-                        <td style="font-size: var(--text-sm)">${l.user_email || l.user_id || '—'}</td>
+                        <td style="font-size: var(--text-xs); white-space: nowrap">${escapeHtml(formatDate(l.created_at))}</td>
+                        <td><code style="font-size: var(--text-xs)">${escapeHtml(l.action)}</code></td>
+                        <td style="font-size: var(--text-sm)">${escapeHtml(l.user_email || l.user_id || '—')}</td>
                         <td>${badge(l.user_role || '—', 'primary')}</td>
                         <td>${badge(l.result, l.result === 'success' ? 'success' : 'danger')}</td>
                         <td>${badge(l.severity, l.severity === 'critical' ? 'danger' : l.severity === 'warning' ? 'warning' : 'info')}</td>
@@ -531,8 +537,8 @@ function showUploadModal() {
                 <div class="card" style="padding: var(--space-3); background: var(--neutral-50); display: flex; align-items: center; gap: var(--space-3)">
                     <span style="font-size: 24px">${getDocIcon(file.type)}</span>
                     <div>
-                        <div style="font-weight: var(--weight-medium)">${file.name}</div>
-                        <div style="font-size: var(--text-xs); color: var(--text-tertiary)">${formatBytes(file.size)} · ${file.type || 'unknown'}</div>
+                        <div style="font-weight: var(--weight-medium)">${escapeHtml(file.name)}</div>
+                        <div style="font-size: var(--text-xs); color: var(--text-tertiary)">${escapeHtml(formatBytes(file.size))} · ${escapeHtml(file.type || 'unknown')}</div>
                     </div>
                 </div>`;
         }

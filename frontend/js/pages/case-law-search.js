@@ -1,7 +1,7 @@
 /**
  * NyaySetu — Case Law / Judgment Search Page
  */
-import { navbar, icons, badge, aiBadge, judgmentCard, disclaimer, showToast } from '../components.js';
+import { navbar, icons, badge, aiBadge, judgmentCard, disclaimer, showToast, escapeHtml } from '../components.js';
 import { getRole } from '../state.js';
 import * as api from '../api.js';
 
@@ -145,12 +145,12 @@ async function searchCaseLaw() {
 
         container.innerHTML = `
             <div style="margin-bottom: var(--space-4); font-size: var(--text-sm); color: var(--text-secondary)">
-                Found <strong>${count}</strong> relevant judgment${count !== 1 ? 's' : ''} ${aiBadge()}
+                Found <strong>${escapeHtml(count)}</strong> relevant judgment${count !== 1 ? 's' : ''} ${aiBadge()}
             </div>
             <div style="display: grid; gap: var(--space-4)">
                 ${results.map(r => judgmentCard(r)).join('')}
             </div>`;
     } catch (e) {
-        container.innerHTML = `<div class="alert alert-warning">${icons.warning} Search unavailable: ${e.message}. The vector store may need to be built first (run build_embeddings.py).</div>`;
+        container.innerHTML = `<div class="alert alert-warning">${icons.warning} Search unavailable: ${escapeHtml(e.message)}. The vector store may need to be built first (run build_embeddings.py).</div>`;
     }
 }

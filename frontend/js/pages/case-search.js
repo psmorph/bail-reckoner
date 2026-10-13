@@ -2,7 +2,7 @@
  * NyaySetu Platform — Case Search & List Page
  * Search, filter, and create cases.
  */
-import { navbar, icons, badge, statCard, showToast } from '../components.js';
+import { navbar, icons, badge, statCard, showToast, escapeHtml } from '../components.js';
 import { getRole, getAuthUser, isAuthenticated, hasPermission } from '../state.js';
 import * as api from '../api.js';
 
@@ -127,30 +127,30 @@ async function loadCases() {
 
         container.innerHTML = `
             <div style="font-size: var(--text-sm); color: var(--text-tertiary); margin-bottom: var(--space-3)">
-                Showing ${cases.length} of ${data.total} cases
+                Showing ${escapeHtml(cases.length)} of ${escapeHtml(data.total)} cases
             </div>
             <div class="case-list-grid">
                 ${cases.map(c => `
-                    <div class="case-list-item" data-navigate="/case-details/${c.id}" style="cursor: pointer">
+                    <div class="case-list-item" data-navigate="/case-details/${escapeHtml(encodeURIComponent(c.id))}" style="cursor: pointer">
                         <div class="case-list-header">
                             <div>
-                                <span class="case-list-id">${c.id}</span>
-                                ${c.fir_number ? `<span class="case-list-fir">${c.fir_number}</span>` : ''}
+                                <span class="case-list-id">${escapeHtml(c.id)}</span>
+                                ${c.fir_number ? `<span class="case-list-fir">${escapeHtml(c.fir_number)}</span>` : ''}
                             </div>
                             <div class="case-list-badges">
                                 ${badge(c.status, c.status === 'active' ? 'success' : 'danger')}
                                 ${badge(c.priority, c.priority === 'high' ? 'warning' : 'primary')}
                             </div>
                         </div>
-                        <div class="case-list-title">${c.title}</div>
+                        <div class="case-list-title">${escapeHtml(c.title)}</div>
                         <div class="case-list-meta">
-                            ${c.sections ? `<span>§ ${c.sections}</span>` : ''}
-                            ${c.accused_name ? `<span>Accused: ${c.accused_name}</span>` : ''}
-                            ${c.org_name ? `<span>${c.org_name}</span>` : ''}
+                            ${c.sections ? `<span>§ ${escapeHtml(c.sections)}</span>` : ''}
+                            ${c.accused_name ? `<span>Accused: ${escapeHtml(c.accused_name)}</span>` : ''}
+                            ${c.org_name ? `<span>${escapeHtml(c.org_name)}</span>` : ''}
                         </div>
                         <div class="case-list-footer">
-                            <span>Created by ${c.creator_name || 'Unknown'}</span>
-                            <span>${formatDate(c.created_at)}</span>
+                            <span>Created by ${escapeHtml(c.creator_name || 'Unknown')}</span>
+                            <span>${escapeHtml(formatDate(c.created_at))}</span>
                         </div>
                     </div>
                 `).join('')}
@@ -158,7 +158,7 @@ async function loadCases() {
 
     } catch (err) {
         container.innerHTML = `<div class="card" style="padding: var(--space-6); text-align: center; color: var(--text-secondary)">
-            Failed to load cases: ${err.message}. Make sure you're logged in.
+            ${err.status === 404 ? 'Case not found or you do not have access.' : `Failed to load cases: ${escapeHtml(err.message)}. Make sure you're logged in.`}
         </div>`;
     }
 }
@@ -261,7 +261,7 @@ function showCreateCaseModal() {
 
             showToast(`✅ Case ${result.case_id} created successfully!`, 'success');
             modal.remove();
-            window.location.hash = `#/case-details/${result.case_id}`;
+            window.location.hash = `#/case-details/${encodeURIComponent(result.case_id)}`;
         } catch (err) {
             document.getElementById('nc-error').textContent = err.message;
             document.getElementById('nc-error').style.display = 'block';

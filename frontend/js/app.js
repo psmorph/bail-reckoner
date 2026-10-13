@@ -140,6 +140,12 @@ function attachGlobalListeners() {
         });
     });
 
+    document.querySelectorAll('[data-accordion-toggle]').forEach(button => {
+        if (button.dataset.bound) return;
+        button.dataset.bound = 'true';
+        button.addEventListener('click', () => button.closest('.accordion-item')?.classList.toggle('open'));
+    });
+
     // Logout
     document.getElementById('logout-btn')?.addEventListener('click', () => {
         clearRole();

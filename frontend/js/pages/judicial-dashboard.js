@@ -1,7 +1,7 @@
 /**
  * NyaySetu — Judicial / Court Dashboard
  */
-import { navbar, sidebar, icons, badge, aiBadge, disclaimer, dataTable, statCard } from '../components.js';
+import { navbar, sidebar, icons, badge, aiBadge, disclaimer, dataTable, statCard, escapeHtml, cell, raw } from '../components.js';
 import { judicialSidebarItems, sampleCase } from '../data.js';
 
 export function render() {
@@ -26,15 +26,15 @@ export function render() {
                 <div class="grid-cols-3" style="gap: var(--space-4)">
                     <div>
                         <div style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px">Case ID</div>
-                        <div style="font-weight: 600; margin-top: 4px">${sc.caseId}</div>
+                        <div style="font-weight: 600; margin-top: 4px">${escapeHtml(sc.caseId)}</div>
                     </div>
                     <div>
                         <div style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px">Accused</div>
-                        <div style="font-weight: 600; margin-top: 4px">${sc.accused}</div>
+                        <div style="font-weight: 600; margin-top: 4px">${escapeHtml(sc.accused)}</div>
                     </div>
                     <div>
                         <div style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px">Court</div>
-                        <div style="font-weight: 600; margin-top: 4px">${sc.court}</div>
+                        <div style="font-weight: 600; margin-top: 4px">${escapeHtml(sc.court)}</div>
                     </div>
                     <div>
                         <div style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px">Case Stage</div>
@@ -59,11 +59,11 @@ export function render() {
                 <div class="card" style="padding: 0; overflow: hidden">
                     ${dataTable({
                         columns: [
-                            { label: 'Section', render: r => `<strong>§${r.section} ${r.act}</strong>` },
-                            { label: 'BNS', render: r => r.bns ? `§${r.bns}` : '—' },
+                            { label: 'Section', render: r => raw(`<strong>§${cell(r.section)} ${cell(r.act)}</strong>`) },
+                            { label: 'BNS', render: r => raw(cell(r.bns ? `§${r.bns}` : '—')) },
                             { label: 'Offence', key: 'offence' },
                             { label: 'Punishment', key: 'punishment' },
-                            { label: 'Bail', render: r => badge(r.bailable, r.bailable === 'Bailable' ? 'success' : 'warning') },
+                            { label: 'Bail', render: r => raw(badge(r.bailable, r.bailable === 'Bailable' ? 'success' : 'warning')) },
                         ],
                         rows: sc.charges,
                     })}

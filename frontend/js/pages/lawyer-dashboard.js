@@ -1,7 +1,7 @@
 /**
  * NyaySetu — Lawyer Dashboard
  */
-import { navbar, sidebar, icons, statCard, badge, dataTable } from '../components.js';
+import { navbar, sidebar, icons, statCard, badge, dataTable, escapeHtml, cell, raw } from '../components.js';
 import { lawyerSidebarItems } from '../data.js';
 
 export function render() {
@@ -40,12 +40,12 @@ export function render() {
                         ].map(b => `
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer" class="card-clickable" data-navigate="/case-analysis">
                                 <div>
-                                    <div style="font-weight: 500; font-size: var(--text-sm)">${b.case}</div>
-                                    <div style="font-size: var(--text-xs); color: var(--text-secondary)">${b.client} • ${b.stage}</div>
+                                    <div style="font-weight: 500; font-size: var(--text-sm)">${escapeHtml(b.case)}</div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-secondary)">${escapeHtml(b.client)} • ${escapeHtml(b.stage)}</div>
                                 </div>
                                 <div style="text-align: right">
                                     ${badge(b.status, b.status === 'Granted' ? 'success' : b.status === 'Pending' ? 'warning' : 'info')}
-                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px">${b.date}</div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px">${escapeHtml(b.date)}</div>
                                 </div>
                             </div>
                         `).join('')}
@@ -63,13 +63,13 @@ export function render() {
                         ].map(h => `
                             <div style="display: flex; gap: var(--space-3); padding: var(--space-3); background: var(--neutral-50); border-radius: var(--radius-md)">
                                 <div style="min-width: 60px; text-align: center; padding: var(--space-2); background: var(--primary-50); border-radius: var(--radius-md)">
-                                    <div style="font-weight: 700; color: var(--primary-600); font-size: var(--text-sm)">${h.date}</div>
-                                    <div style="font-size: var(--text-xs); color: var(--primary-500)">${h.time}</div>
+                                    <div style="font-weight: 700; color: var(--primary-600); font-size: var(--text-sm)">${escapeHtml(h.date)}</div>
+                                    <div style="font-size: var(--text-xs); color: var(--primary-500)">${escapeHtml(h.time)}</div>
                                 </div>
                                 <div>
-                                    <div style="font-weight: 500; font-size: var(--text-sm)">${h.type}</div>
-                                    <div style="font-size: var(--text-xs); color: var(--text-secondary)">${h.court}</div>
-                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary)">${h.case}</div>
+                                    <div style="font-weight: 500; font-size: var(--text-sm)">${escapeHtml(h.type)}</div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-secondary)">${escapeHtml(h.court)}</div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary)">${escapeHtml(h.case)}</div>
                                 </div>
                             </div>
                         `).join('')}
@@ -86,13 +86,13 @@ export function render() {
                 <div class="card" style="padding: 0; overflow: hidden">
                     ${dataTable({
                         columns: [
-                            { label: 'Case Type', render: r => `<strong>${r.type}</strong>` },
+                            { label: 'Case Type', render: r => raw(`<strong>${cell(r.type)}</strong>`) },
                             { label: 'Court', key: 'court' },
-                            { label: 'Provisions', render: r => badge(r.provisions, 'neutral') },
+                            { label: 'Provisions', render: r => raw(badge(r.provisions, 'neutral')) },
                             { label: 'Stage', key: 'stage' },
                             { label: 'Date', key: 'date' },
-                            { label: 'Status', render: r => badge(r.status, r.status === 'New' ? 'primary' : r.status === 'Accepted' ? 'success' : 'neutral') },
-                            { label: 'Action', render: () => `<button class="btn btn-outline btn-sm" data-navigate="/case-analysis">View</button>` },
+                            { label: 'Status', render: r => raw(badge(r.status, r.status === 'New' ? 'primary' : r.status === 'Accepted' ? 'success' : 'neutral')) },
+                            { label: 'Action', render: () => raw('<button class="btn btn-outline btn-sm" data-navigate="/case-analysis">View</button>') },
                         ],
                         rows: [
                             { type: 'Bail Application', court: 'Patiala House', provisions: '§420, 468 IPC', stage: 'Pre-Trial', date: '08 Jun 2025', status: 'New' },

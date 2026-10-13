@@ -1,7 +1,7 @@
 /**
  * NyaySetu — Police / Law Enforcement Dashboard
  */
-import { navbar, sidebar, icons, statCard, badge, dataTable, alert } from '../components.js';
+import { navbar, sidebar, icons, statCard, badge, dataTable, alert, cell, raw } from '../components.js';
 import { policeSidebarItems } from '../data.js';
 
 export function render() {
@@ -82,13 +82,13 @@ export function render() {
                 <div class="card" style="padding: 0; overflow: hidden">
                     ${dataTable({
                         columns: [
-                            { label: 'FIR No.', render: r => `<strong>${r.fir}</strong>` },
+                            { label: 'FIR No.', render: r => raw(`<strong>${cell(r.fir)}</strong>`) },
                             { label: 'Offences', key: 'offences' },
                             { label: 'Accused', key: 'accused' },
-                            { label: 'Stage', render: r => badge(r.stage, r.stage === 'Investigation' ? 'warning' : r.stage === 'Charge Sheet Filed' ? 'success' : 'info') },
+                            { label: 'Stage', render: r => raw(badge(r.stage, r.stage === 'Investigation' ? 'warning' : r.stage === 'Charge Sheet Filed' ? 'success' : 'info')) },
                             { label: 'Next Court Date', key: 'date' },
-                            { label: 'Status', render: r => badge(r.status, r.status === 'Active' ? 'primary' : 'neutral') },
-                            { label: '', render: () => `<button class="btn btn-outline btn-sm" data-navigate="/case-analysis">View</button>` },
+                            { label: 'Status', render: r => raw(badge(r.status, r.status === 'Active' ? 'primary' : 'neutral')) },
+                            { label: '', render: () => raw('<button class="btn btn-outline btn-sm" data-navigate="/case-analysis">View</button>') },
                         ],
                         rows: [
                             { fir: 'FIR/2025/DL/004521', offences: '§420, 468, 471 IPC', accused: 'Accused A', stage: 'Charge Sheet Filed', date: '10 Jun 2025', status: 'Active' },

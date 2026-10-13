@@ -5,6 +5,32 @@
 import { getLanguage } from './state.js';
 import { t } from './i18n.js';
 
+const RAW_HTML = Symbol('raw-html');
+
+export function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char]);
+}
+
+export function raw(htmlString) {
+    return { [RAW_HTML]: true, value: String(htmlString ?? '') };
+}
+
+export function cell(value) {
+    return escapeHtml(value);
+}
+
+function safeClass(value, fallback = 'neutral') {
+    const allowed = new Set(['primary', 'secondary', 'neutral', 'success', 'warning', 'danger', 'info', 'error', 'ai']);
+    return allowed.has(value) ? value : fallback;
+}
+
+function safeColor(value, fallback) {
+    const color = String(value || '');
+    return /^(var\(--[\w-]+\)|#[\da-f]{3,8}|[a-z]+)$/i.test(color) ? color : fallback;
+}
+
 // ===== ICONS (inline SVG for independence from external libraries) ===========
 
 export const icons = {
@@ -48,7 +74,7 @@ export function navbar(options = {}) {
                 <option value="mr">मराठी</option>
             </select>
             ${showRole ? `
-                <span class="badge badge-primary badge-lg">${roleName}</span>
+                <span class="badge badge-primary badge-lg">${escapeHtml(roleName)}</span>
                 <button class="btn btn-ghost btn-sm" data-navigate="/notifications" title="${t('Notifications', language)}">${icons.bell}</button>
                 <button class="btn btn-ghost btn-sm" id="logout-btn" title="${t('Switch Role', language)}">${icons.logout}</button>
             ` : `
@@ -71,16 +97,16 @@ export function sidebar(items = [], activeId = '') {
 
     let html = '<aside class="sidebar" id="sidebar">';
     for (const [group, groupItems] of Object.entries(groupedItems)) {
-        html += `<div class="sidebar-label">${group}</div>`;
+        html += `<div class="sidebar-label">${escapeHtml(group)}</div>`;
         for (const item of groupItems) {
             const isActive = item.id === activeId;
             html += `
             <div class="sidebar-item ${isActive ? 'active' : ''}" 
-                 data-navigate="${item.route || '#'}"
-                 data-sidebar-id="${item.id}">
-                <span class="sidebar-icon">${item.icon || ''}</span>
-                <span>${item.label}</span>
-                ${item.badge ? `<span class="sidebar-badge">${item.badge}</span>` : ''}
+                 data-navigate="${escapeHtml(item.route || '#')}"
+                 data-sidebar-id="${escapeHtml(item.id)}">
+                <span class="sidebar-icon">${escapeHtml(item.icon || '')}</span>
+                <span>${escapeHtml(item.label)}</span>
+                ${item.badge ? `<span class="sidebar-badge">${escapeHtml(item.badge)}</span>` : ''}
             </div>`;
         }
     }
@@ -91,16 +117,17 @@ export function sidebar(items = [], activeId = '') {
 // ===== STAT CARD =============================================================
 
 export function statCard({ icon, iconBg, value, label, change, changeType }) {
+    const background = safeColor(iconBg, 'var(--primary-50)');
     return `
     <div class="stat-card">
-        <div class="stat-icon" style="background: ${iconBg || 'var(--primary-50)'}; color: ${iconBg ? 'white' : 'var(--primary-600)'}">
-            ${icon}
+        <div class="stat-icon" style="background: ${background}; color: ${iconBg ? 'white' : 'var(--primary-600)'}">
+            ${escapeHtml(icon)}
         </div>
-        <div class="stat-value">${value}</div>
-        <div class="stat-label">${label}</div>
+        <div class="stat-value">${escapeHtml(value)}</div>
+        <div class="stat-label">${escapeHtml(label)}</div>
         ${change ? `
         <div class="stat-change" style="color: ${changeType === 'up' ? 'var(--success-600)' : changeType === 'down' ? 'var(--danger-600)' : 'var(--text-tertiary)'}">
-            ${changeType === 'up' ? '↑' : changeType === 'down' ? '↓' : '•'} ${change}
+            ${changeType === 'up' ? '↑' : changeType === 'down' ? '↓' : '•'} ${escapeHtml(change)}
         </div>` : ''}
     </div>`;
 }
@@ -108,11 +135,11 @@ export function statCard({ icon, iconBg, value, label, change, changeType }) {
 // ===== BADGE =================================================================
 
 export function badge(text, type = 'neutral') {
-    return `<span class="badge badge-${type}">${text}</span>`;
+    return `<span class="badge badge-${safeClass(type)}">${escapeHtml(text)}</span>`;
 }
 
 export function badgeDot(text, type = 'neutral') {
-    return `<span class="badge badge-${type} badge-dot">${text}</span>`;
+    return `<span class="badge badge-${safeClass(type)} badge-dot">${escapeHtml(text)}</span>`;
 }
 
 // ===== AI BADGE ==============================================================
@@ -133,32 +160,39 @@ export function aiBadge() {
 // ===== FEATURE CARD ==========================================================
 
 export function featureCard({ icon, iconBg, title, description, route }) {
+    const background = safeColor(iconBg, 'var(--primary-50)');
     return `
-    <div class="feature-card" data-navigate="${route || '#'}">
-        <div class="feature-icon" style="background: ${iconBg || 'var(--primary-50)'}; color: ${iconBg ? '' : 'var(--primary-600)'}">
-            ${icon}
+    <div class="feature-card" data-navigate="${escapeHtml(route || '#')}">
+        <div class="feature-icon" style="background: ${background}; color: ${iconBg ? '' : 'var(--primary-600)'}">
+            ${escapeHtml(icon)}
         </div>
-        <div class="feature-title">${title}</div>
-        <div class="feature-description">${description}</div>
+        <div class="feature-title">${escapeHtml(title)}</div>
+        <div class="feature-description">${escapeHtml(description)}</div>
     </div>`;
 }
 
 // ===== DATA TABLE ============================================================
 
+/**
+ * Custom render callbacks return trusted HTML, and must escape dynamic values
+ * with cell() or use an escaping component such as badge(). Default cells are
+ * escaped automatically.
+ */
 export function dataTable({ columns, rows, emptyText = 'No data available' }) {
     if (!rows || rows.length === 0) {
         return `<div class="empty-state"><div class="empty-icon">${icons.doc}</div>
-            <div class="empty-title">${emptyText}</div></div>`;
+            <div class="empty-title">${escapeHtml(emptyText)}</div></div>`;
     }
     let html = '<div style="overflow-x: auto"><table class="data-table"><thead><tr>';
     columns.forEach(col => {
-        html += `<th>${col.label}</th>`;
+        html += `<th>${escapeHtml(col.label)}</th>`;
     });
     html += '</tr></thead><tbody>';
     rows.forEach(row => {
         html += '<tr>';
         columns.forEach(col => {
-            const val = col.render ? col.render(row) : (row[col.key] ?? '—');
+            const rendered = col.render ? col.render(row) : (row[col.key] ?? '—');
+            const val = rendered && rendered[RAW_HTML] ? rendered.value : escapeHtml(rendered);
             html += `<td>${val}</td>`;
         });
         html += '</tr>';
@@ -169,15 +203,17 @@ export function dataTable({ columns, rows, emptyText = 'No data available' }) {
 
 // ===== ACCORDION =============================================================
 
+/**
+ * Accordion titles and contents are trusted HTML. Escape any dynamic values
+ * before inserting them into either field.
+ */
 export function accordion(items) {
     return items.map((item, i) => `
     <div class="accordion-item" id="acc-${i}">
-        <div class="accordion-header" onclick="
-            this.parentElement.classList.toggle('open');
-        ">
+        <button class="accordion-header" type="button" data-accordion-toggle>
             <span>${item.title}</span>
             <span class="accordion-arrow">▾</span>
-        </div>
+        </button>
         <div class="accordion-body">${item.content}</div>
     </div>`).join('');
 }
@@ -186,38 +222,44 @@ export function accordion(items) {
 
 export function timeline(events) {
     return `<div class="timeline">${events.map(e => `
-        <div class="timeline-item ${e.status || ''}">
+        <div class="timeline-item ${escapeHtml(e.status || '')}">
             <div class="timeline-dot"></div>
-            <div class="timeline-date">${e.date}</div>
-            <div class="timeline-title">${e.title}</div>
-            ${e.body ? `<div class="timeline-body">${e.body}</div>` : ''}
+            <div class="timeline-date">${escapeHtml(e.date)}</div>
+            <div class="timeline-title">${escapeHtml(e.title)}</div>
+            ${e.body ? `<div class="timeline-body">${escapeHtml(e.body)}</div>` : ''}
         </div>`).join('')}</div>`;
 }
 
 // ===== UPLOAD ZONE ===========================================================
 
 export function uploadZone(id = 'file-upload') {
+    const safeId = String(id).replace(/[^A-Za-z0-9_-]/g, '') || 'file-upload';
     return `
-    <div class="upload-zone" id="${id}-zone">
+    <div class="upload-zone" id="${safeId}-zone">
         <div class="upload-icon">${icons.upload}</div>
         <div class="upload-title">Extract text from a PDF</div>
         <div class="upload-hint">Text-based PDFs only · 10 MB maximum · scanned PDFs need OCR</div>
         <div class="upload-formats">
             ${badge('PDF', 'neutral')} ${badge('Not added to case library', 'info')}
         </div>
-        <input type="file" id="${id}" accept=".pdf,application/pdf" style="display:none">
+        <input type="file" id="${safeId}" accept=".pdf,application/pdf" style="display:none">
     </div>`;
 }
 
 // ===== ALERT =================================================================
 
+/**
+ * The message argument is trusted HTML for existing static rich-text callers.
+ * Escape API- or user-provided content before passing it as message.
+ */
 export function alert(message, type = 'info', title = '') {
+    const alertType = safeClass(type, 'info');
     const iconMap = { info: icons.info, success: icons.check, warning: icons.warning, danger: icons.danger, ai: icons.ai };
     return `
-    <div class="alert alert-${type}">
-        <span class="alert-icon">${iconMap[type] || icons.info}</span>
+    <div class="alert alert-${alertType}">
+        <span class="alert-icon">${iconMap[alertType] || icons.info}</span>
         <div class="alert-content">
-            ${title ? `<div class="alert-title">${title}</div>` : ''}
+            ${title ? `<div class="alert-title">${escapeHtml(title)}</div>` : ''}
             <div>${message}</div>
         </div>
     </div>`;
@@ -229,7 +271,7 @@ export function disclaimer(text) {
     return `
     <div class="alert alert-disclaimer">
         <span class="alert-icon">${icons.warning}</span>
-        <div class="alert-content">${text || 'AI-generated information is for assistance and must be verified against applicable law and official court records. This is not legal advice.'}</div>
+    <div class="alert-content">${escapeHtml(text || 'AI-generated information is for assistance and must be verified against applicable law and official court records. This is not legal advice.')}</div>
     </div>`;
 }
 
@@ -239,7 +281,7 @@ export function stepProgress(steps, currentStep = 0) {
     return `<div class="step-progress">${steps.map((step, i) => `
         <div class="step-item ${i < currentStep ? 'completed' : i === currentStep ? 'active' : ''}">
             <div class="step-dot">${i < currentStep ? '✓' : i + 1}</div>
-            <div class="step-label">${step}</div>
+            <div class="step-label">${escapeHtml(step)}</div>
         </div>`).join('')}</div>`;
 }
 
@@ -251,7 +293,7 @@ export function showModal(title, content, actions = '') {
     <div class="modal-overlay" id="modal-overlay">
         <div class="modal">
             <div class="modal-header">
-                <h3 class="modal-title">${title}</h3>
+                <h3 class="modal-title">${escapeHtml(title)}</h3>
                 <button class="modal-close" id="modal-close">${icons.close}</button>
             </div>
             <div class="modal-body">${content}</div>
@@ -273,12 +315,14 @@ export function closeModal() {
 export function showToast(message, type = 'info', duration = 4000) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    const iconMap = { info: icons.info, success: '✅', warning: icons.warning, error: '❌' };
+    toast.className = `toast toast-${safeClass(type, 'info')}`;
+    const iconMap = { info: icons.info, success: '✅', warning: icons.warning, error: '❌', danger: '❌' };
+    const toastType = safeClass(type, 'info');
     toast.innerHTML = `
-        <span>${iconMap[type] || icons.info}</span>
-        <div style="flex:1"><div style="font-weight:500;font-size:13px">${message}</div></div>
-        <button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()">${icons.close}</button>`;
+        <span>${iconMap[toastType] || icons.info}</span>
+        <div style="flex:1"><div style="font-weight:500;font-size:13px">${escapeHtml(message)}</div></div>
+        <button class="btn btn-ghost btn-sm" data-dismiss-toast>${icons.close}</button>`;
+    toast.querySelector('[data-dismiss-toast]').addEventListener('click', () => toast.remove());
     container.appendChild(toast);
     setTimeout(() => toast.remove(), duration);
 }
@@ -289,21 +333,21 @@ export function loadingOverlay(message = 'Loading...') {
     return `
     <div class="loading-overlay">
         <div class="spinner spinner-lg"></div>
-        <div>${message}</div>
+        <div>${escapeHtml(message)}</div>
     </div>`;
 }
 
 // ===== DOCUMENT CARD =========================================================
 
 export function docCard({ name, type, date, uploadedBy, status }) {
-    const typeClass = type === 'PDF' ? 'pdf' : type === 'IMG' ? 'img' : 'doc';
+    const typeClass = ['PDF', 'IMG'].includes(type) ? type.toLowerCase() : 'doc';
     const typeIcon = type === 'PDF' ? '📕' : type === 'IMG' ? '🖼️' : '📄';
     return `
     <div class="doc-card">
         <div class="doc-icon ${typeClass}">${typeIcon}</div>
         <div class="doc-info">
-            <div class="doc-name">${name}</div>
-            <div class="doc-meta">${date} • ${uploadedBy || 'Unknown'}</div>
+            <div class="doc-name">${escapeHtml(name)}</div>
+            <div class="doc-meta">${escapeHtml(date)} • ${escapeHtml(uploadedBy || 'Unknown')}</div>
         </div>
         <div class="doc-actions">
             ${badge(status || 'Uploaded', status === 'Verified' ? 'success' : 'neutral')}
@@ -319,13 +363,13 @@ export function caseCard({ title, court, date, bailType, outcome, sections, simi
     const outcomeType = outcome === 'Granted' ? 'success' : outcome === 'Rejected' ? 'danger' : 'warning';
     return `
     <div class="case-card">
-        <div class="card-title" style="font-size: var(--text-base)">${title}</div>
-        <div class="card-subtitle">${court} • ${date}</div>
+        <div class="card-title" style="font-size: var(--text-base)">${escapeHtml(title)}</div>
+        <div class="card-subtitle">${escapeHtml(court)} • ${escapeHtml(date)}</div>
         <div class="case-meta">
             ${badge(bailType || 'Regular', 'primary')}
             ${badge(outcome || 'Pending', outcomeType)}
             ${sections ? badge(sections, 'neutral') : ''}
-            ${similarity ? `<span class="badge badge-info">Similarity: ${similarity}</span>` : ''}
+            ${similarity ? `<span class="badge badge-info">Similarity: ${escapeHtml(similarity)}</span>` : ''}
         </div>
     </div>`;
 }
@@ -338,11 +382,11 @@ export function provisionCard(prov) {
     <div class="card">
         <div class="card-header">
             <div>
-                <div class="card-title">${prov.offense_name || prov.offence || '—'}</div>
+                <div class="card-title">${escapeHtml(prov.offense_name || prov.offence || '—')}</div>
                 <div class="card-subtitle">
-                    ${prov.ipc_section ? `IPC §${prov.ipc_section}` : ''}
-                    ${prov.bns_section ? ` / BNS §${prov.bns_section}` : ''}
-                    ${prov.act_name ? `${prov.act_name} §${prov.section}` : ''}
+                    ${prov.ipc_section ? `IPC §${escapeHtml(prov.ipc_section)}` : ''}
+                    ${prov.bns_section ? ` / BNS §${escapeHtml(prov.bns_section)}` : ''}
+                    ${prov.act_name ? `${escapeHtml(prov.act_name)} §${escapeHtml(prov.section)}` : ''}
                 </div>
             </div>
             ${badge(prov.bailable || 'Unknown', bailType)}
@@ -355,12 +399,12 @@ export function provisionCard(prov) {
             </div>
             <div style="font-size: var(--text-sm); color: var(--text-secondary)">
                 ${prov.min_punishment_years != null || prov.max_punishment_years != null ? 
-                    `<strong>Punishment:</strong> ${prov.min_punishment_years || 0}–${prov.max_punishment_years || '—'} years` : ''}
+                    `<strong>Punishment:</strong> ${escapeHtml(prov.min_punishment_years || 0)}–${escapeHtml(prov.max_punishment_years || '—')} years` : ''}
                 ${prov.death_or_life ? ' • <span class="text-danger">Death/Life imprisonment possible</span>' : ''}
                 ${prov.fine_applicable ? ' • Fine applicable' : ''}
             </div>
-            ${prov.notes ? `<div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-2)">${prov.notes}</div>` : ''}
-            ${prov.triable_by ? `<div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1)">Triable by: ${prov.triable_by}</div>` : ''}
+            ${prov.notes ? `<div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-2)">${escapeHtml(prov.notes)}</div>` : ''}
+            ${prov.triable_by ? `<div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1)">Triable by: ${escapeHtml(prov.triable_by)}</div>` : ''}
         </div>
     </div>`;
 }
@@ -372,23 +416,23 @@ export function judgmentCard(j) {
     <div class="card">
         <div class="card-header">
             <div>
-                <div class="card-title">${j.case_name || j.case_title || '—'}</div>
-                <div class="card-subtitle">${j.court || ''} ${j.year ? `(${j.year})` : ''} ${j.citation ? `• ${j.citation}` : ''}</div>
+                <div class="card-title">${escapeHtml(j.case_name || j.case_title || '—')}</div>
+                <div class="card-subtitle">${escapeHtml(j.court || '')} ${j.year ? `(${escapeHtml(j.year)})` : ''} ${j.citation ? `• ${escapeHtml(j.citation)}` : ''}</div>
             </div>
             ${j.bail_outcome ? badge(j.bail_outcome, j.bail_outcome === 'Granted' ? 'success' : 'danger') : ''}
         </div>
         <div class="card-body">
-            <p>${j.principle_summary || j.summary || j.judgment_reason || ''}</p>
+            <p>${escapeHtml(j.principle_summary || j.summary || j.judgment_reason || '')}</p>
             ${j.applicable_categories ? `
             <div style="margin-top: var(--space-3); display: flex; gap: var(--space-2); flex-wrap: wrap">
                 ${j.applicable_categories.split(',').map(c => badge(c.trim(), 'info')).join('')}
             </div>` : ''}
-            ${j.ipc_sections ? `<div style="margin-top: var(--space-2); font-size: var(--text-xs); color: var(--text-tertiary)">Sections: ${j.ipc_sections}</div>` : ''}
+            ${j.ipc_sections ? `<div style="margin-top: var(--space-2); font-size: var(--text-xs); color: var(--text-tertiary)">Sections: ${escapeHtml(j.ipc_sections)}</div>` : ''}
             ${j.similarity != null ? `<div style="margin-top: var(--space-2)">${badge('Similarity: ' + j.similarity, 'primary')}</div>` : ''}
         </div>
         ${j.bail_type || j.date ? `
         <div class="card-footer" style="font-size: var(--text-xs); color: var(--text-tertiary)">
-            <span>${j.bail_type || ''} ${j.date ? `• ${j.date}` : ''}</span>
+            <span>${escapeHtml(j.bail_type || '')} ${j.date ? `• ${escapeHtml(j.date)}` : ''}</span>
             ${aiBadge()}
         </div>` : ''}
     </div>`;

@@ -1,7 +1,7 @@
 /**
  * NyaySetu — Admin / Legal Database Management
  */
-import { navbar, sidebar, icons, badge, statCard, dataTable } from '../components.js';
+import { navbar, sidebar, icons, badge, statCard, dataTable, escapeHtml, cell, raw } from '../components.js';
 import { adminSidebarItems } from '../data.js';
 import * as api from '../api.js';
 
@@ -106,13 +106,13 @@ async function loadModule(module) {
             const ipcOnly = provisions.filter(p => p.source_type === 'IPC/BNS');
             container.innerHTML = dataTable({
                 columns: [
-                    { label: 'IPC §', render: r => `<strong>${r.ipc_section || '—'}</strong>` },
-                    { label: 'BNS §', render: r => r.bns_section || '—' },
+                    { label: 'IPC §', render: r => raw(`<strong>${cell(r.ipc_section || '—')}</strong>`) },
+                    { label: 'BNS §', render: r => raw(cell(r.bns_section || '—')) },
                     { label: 'Offence', key: 'offense_name' },
-                    { label: 'Category', render: r => badge(r.category || '—', 'info') },
-                    { label: 'Punishment', render: r => `${r.min_punishment_years || 0}–${r.max_punishment_years || '—'} yrs` },
-                    { label: 'Bail', render: r => badge(r.bailable || '—', r.bailable === 'bailable' ? 'success' : 'warning') },
-                    { label: 'Cognizable', render: r => badge(r.cognizable || '—', 'neutral') },
+                    { label: 'Category', render: r => raw(badge(r.category || '—', 'info')) },
+                    { label: 'Punishment', render: r => raw(cell(`${r.min_punishment_years || 0}–${r.max_punishment_years || '—'} yrs`)) },
+                    { label: 'Bail', render: r => raw(badge(r.bailable || '—', r.bailable === 'bailable' ? 'success' : 'warning')) },
+                    { label: 'Cognizable', render: r => raw(badge(r.cognizable || '—', 'neutral')) },
                 ],
                 rows: ipcOnly,
             });
@@ -122,10 +122,10 @@ async function loadModule(module) {
             container.innerHTML = dataTable({
                 columns: [
                     { label: 'Act', key: 'act_name' },
-                    { label: 'Section', render: r => `<strong>§${r.section}</strong>` },
+                    { label: 'Section', render: r => raw(`<strong>§${cell(r.section)}</strong>`) },
                     { label: 'Offence', key: 'offense_name' },
-                    { label: 'Punishment', render: r => `${r.min_punishment_years || 0}–${r.max_punishment_years || '—'} yrs` },
-                    { label: 'Bail', render: r => badge(r.bailable || '—', r.bailable === 'bailable' ? 'success' : 'warning') },
+                    { label: 'Punishment', render: r => raw(cell(`${r.min_punishment_years || 0}–${r.max_punishment_years || '—'} yrs`)) },
+                    { label: 'Bail', render: r => raw(badge(r.bailable || '—', r.bailable === 'bailable' ? 'success' : 'warning')) },
                 ],
                 rows: special,
             });
@@ -133,11 +133,11 @@ async function loadModule(module) {
             const { judgments } = await api.getLandmarkJudgments();
             container.innerHTML = dataTable({
                 columns: [
-                    { label: 'Case', render: r => `<strong>${r.case_name}</strong>` },
+                    { label: 'Case', render: r => raw(`<strong>${cell(r.case_name)}</strong>`) },
                     { label: 'Citation', key: 'citation' },
                     { label: 'Year', key: 'year' },
                     { label: 'Court', key: 'court' },
-                    { label: 'Categories', render: r => (r.applicable_categories || '').split(',').map(c => badge(c.trim(), 'info')).join(' ') },
+                    { label: 'Categories', render: r => raw((r.applicable_categories || '').split(',').map(c => badge(c.trim(), 'info')).join(' ')) },
                 ],
                 rows: judgments,
             });
@@ -145,10 +145,10 @@ async function loadModule(module) {
             const { items } = await api.getChecklist();
             container.innerHTML = dataTable({
                 columns: [
-                    { label: 'Category', render: r => badge(r.category, 'primary') },
-                    { label: 'Bail Type', render: r => badge(r.bail_type, 'info') },
+                    { label: 'Category', render: r => raw(badge(r.category, 'primary')) },
+                    { label: 'Bail Type', render: r => raw(badge(r.bail_type, 'info')) },
                     { label: 'Requirement', key: 'requirement' },
-                    { label: 'Mandatory', render: r => r.is_mandatory ? badge('Yes', 'danger') : badge('No', 'neutral') },
+                    { label: 'Mandatory', render: r => raw(r.is_mandatory ? badge('Yes', 'danger') : badge('No', 'neutral')) },
                 ],
                 rows: items,
             });
@@ -156,9 +156,9 @@ async function loadModule(module) {
             const { rules } = await api.getCustodyRules();
             container.innerHTML = dataTable({
                 columns: [
-                    { label: 'Rule', render: r => `<strong>${r.rule_name}</strong>` },
+                    { label: 'Rule', render: r => raw(`<strong>${cell(r.rule_name)}</strong>`) },
                     { label: 'Source', key: 'source_provision' },
-                    { label: 'Threshold', render: r => `${(r.threshold_fraction * 100).toFixed(0)}%` },
+                    { label: 'Threshold', render: r => raw(cell(`${(r.threshold_fraction * 100).toFixed(0)}%`)) },
                     { label: 'Applies To', key: 'applies_to' },
                 ],
                 rows: rules,
@@ -171,6 +171,6 @@ async function loadModule(module) {
             </div>`;
         }
     } catch (e) {
-        container.innerHTML = `<div style="padding: var(--space-6); text-align: center; color: var(--danger-600)">${icons.danger} Error loading data: ${e.message}</div>`;
+        container.innerHTML = `<div style="padding: var(--space-6); text-align: center; color: var(--danger-600)">${icons.danger} Error loading data: ${escapeHtml(e.message)}</div>`;
     }
 }
