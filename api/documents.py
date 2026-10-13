@@ -5,6 +5,8 @@ Secure document upload, download, verification, and versioning.
 from __future__ import annotations
 
 import json
+import hashlib
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
@@ -12,16 +14,20 @@ from fastapi.responses import Response
 from api.access import accessible_case_clause, check_case_access
 from api.database import generate_id, get_db, now_iso
 from api.middleware import CurrentUser, get_current_user, get_client_ip
-from services.audit import log_document_event
+from services.audit import log_document_event, log_event
 from services.crypto import sha256_hash_bytes
 from services.file_handler import (
+    MAX_FILE_SIZE,
+    delete_file,
+    detect_mime_type,
+    extension_matches_mime,
     generate_storage_filename,
     retrieve_file,
     sanitize_filename,
     store_file,
     validate_extension,
-    validate_file_size,
 )
+from services.malware_scan import scan_bytes
 from services.rbac import Permission
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
@@ -43,18 +49,68 @@ async def upload_document(
     with get_db() as conn:
         check_case_access(conn, case_id, current_user)
 
-    # Validate file
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            request_length = int(content_length)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length header") from exc
+        if request_length > MAX_FILE_SIZE + 64 * 1024:
+            raise HTTPException(status_code=413, detail="File too large. Maximum 50 MB.")
+
     original_name = sanitize_filename(file.filename or "unnamed")
     if not validate_extension(original_name):
         raise HTTPException(status_code=400, detail="File type not allowed. Allowed: PDF, JPG, PNG, TIFF, DOC, DOCX, TXT")
 
-    # Read file data
-    data = await file.read()
-    if not validate_file_size(len(data)):
-        raise HTTPException(status_code=400, detail="File too large. Maximum 50 MB.")
+    if file.size is not None and file.size > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large. Maximum 50 MB.")
+
+    chunks = []
+    total_size = 0
+    while chunk := await file.read(1024 * 1024):
+        total_size += len(chunk)
+        if total_size > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="File too large. Maximum 50 MB.")
+        chunks.append(chunk)
+    if total_size == 0:
+        raise HTTPException(status_code=400, detail="Empty files are not allowed.")
+    data = b"".join(chunks)
+
+    detected_mime_type = detect_mime_type(data)
+    if detected_mime_type is None or not extension_matches_mime(original_name, detected_mime_type):
+        raise HTTPException(status_code=400, detail="File contents do not match the file extension.")
+
+    try:
+        scanned = scan_bytes(data)
+    except RuntimeError as exc:
+        log_event(
+            "malware_scan_failed",
+            user_id=current_user.id,
+            user_role=current_user.role_id,
+            entity_type="document_upload",
+            case_id=case_id,
+            ip_address=ip,
+            result="failure",
+            severity="critical",
+            metadata=json.dumps({"reason": str(exc)}),
+        )
+        raise HTTPException(status_code=422, detail="Malware scanning failed; upload rejected.") from exc
+    if not scanned:
+        log_event(
+            "malware_detected",
+            user_id=current_user.id,
+            user_role=current_user.role_id,
+            entity_type="document_upload",
+            case_id=case_id,
+            ip_address=ip,
+            result="failure",
+            severity="critical",
+            metadata=json.dumps({"original_name": original_name}),
+        )
+        raise HTTPException(status_code=422, detail="Malware detected; upload rejected.")
 
     # Compute SHA-256 hash from original bytes
-    file_hash = sha256_hash_bytes(data)
+    file_hash = hashlib.sha256(data).hexdigest()
 
     # Generate storage filename and store encrypted
     storage_name = generate_storage_filename(original_name)
@@ -64,27 +120,30 @@ async def upload_document(
     doc_id = generate_id("DOC-")
     now = now_iso()
 
-    with get_db() as conn:
-        conn.execute(
-            """INSERT INTO documents
-               (id, case_id, doc_type, file_name, original_name, mime_type, file_size,
-                uploaded_by, uploader_role, sha256_hash, encrypted, encryption_key_ref,
-                verification_status, version, is_deleted, created_at, last_accessed)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'system', 'pending', 1, 0, ?, ?)""",
-            (
-                doc_id, case_id, doc_type, storage_name, original_name,
-                file.content_type or "", len(data),
-                current_user.id, current_user.role_id, file_hash,
-                now, now,
-            ),
-        )
+    try:
+        with get_db() as conn:
+            conn.execute(
+                """INSERT INTO documents
+                   (id, case_id, doc_type, file_name, original_name, mime_type, file_size,
+                    uploaded_by, uploader_role, sha256_hash, encrypted, encryption_key_ref,
+                    verification_status, version, is_deleted, created_at, last_accessed)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'system', 'pending', 1, 0, ?, ?)""",
+                (
+                    doc_id, case_id, doc_type, storage_name, original_name,
+                    detected_mime_type, len(data),
+                    current_user.id, current_user.role_id, file_hash,
+                    now, now,
+                ),
+            )
 
-        # Create version 1 record
-        conn.execute(
-            """INSERT INTO document_versions (id, document_id, version, sha256_hash, file_name, file_size, uploaded_by, created_at)
-               VALUES (?, ?, 1, ?, ?, ?, ?, ?)""",
-            (generate_id("VER-"), doc_id, file_hash, storage_name, len(data), current_user.id, now),
-        )
+            conn.execute(
+                """INSERT INTO document_versions (id, document_id, version, sha256_hash, file_name, file_size, uploaded_by, created_at)
+                   VALUES (?, ?, 1, ?, ?, ?, ?, ?)""",
+                (generate_id("VER-"), doc_id, file_hash, storage_name, len(data), current_user.id, now),
+            )
+    except Exception:
+        delete_file(storage_name)
+        raise
 
     log_document_event("document_uploaded", user_id=current_user.id,
                        user_role=current_user.role_id, document_id=doc_id,
@@ -219,12 +278,24 @@ async def download_document(
                        user_role=current_user.role_id, document_id=doc_id,
                        case_id=doc_dict.get("case_id", ""), ip=ip)
 
+    mime_type = doc_dict.get("mime_type", "")
+    download_type = mime_type if mime_type == "application/pdf" or mime_type.startswith("image/") else "application/octet-stream"
+    filename = doc_dict["original_name"]
+    ascii_filename = "".join(
+        character if character.isascii() and (character.isalnum() or character in "._-") else "_"
+        for character in filename
+    ) or "download"
+    encoded_filename = quote(filename, safe="!#$&+-.^_`|~")
     return Response(
         content=data,
-        media_type=doc_dict.get("mime_type", "application/octet-stream"),
+        media_type=download_type,
         headers={
-            "Content-Disposition": f'attachment; filename="{doc_dict["original_name"]}"',
+            "Content-Disposition": (
+                f'attachment; filename="{ascii_filename}"; '
+                f"filename*=UTF-8''{encoded_filename}"
+            ),
             "X-Document-Hash": doc_dict.get("sha256_hash", ""),
+            "X-Content-Type-Options": "nosniff",
         },
     )
 

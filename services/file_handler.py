@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import os
 import re
+import tempfile
 import uuid
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -66,6 +69,40 @@ def validate_file_size(size: int) -> bool:
     return 0 < size <= MAX_FILE_SIZE
 
 
+def detect_mime_type(data: bytes) -> str | None:
+    """Detect an allowed file type from its contents."""
+    if data.startswith(b"%PDF-"):
+        return "application/pdf"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith((b"II*\0", b"MM\0*")):
+        return "image/tiff"
+    if data.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+        return "application/msword"
+    if data.startswith(b"PK\x03\x04"):
+        try:
+            with zipfile.ZipFile(BytesIO(data)) as archive:
+                names = set(archive.namelist())
+            if "[Content_Types].xml" in names and any(name.startswith("word/") for name in names):
+                return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        except (OSError, zipfile.BadZipFile):
+            return None
+    if b"\0" not in data:
+        try:
+            data.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        return "text/plain"
+    return None
+
+
+def extension_matches_mime(filename: str, mime_type: str) -> bool:
+    """Check that a filename extension agrees with the detected content type."""
+    return Path(filename).suffix.lower() in ALLOWED_TYPES.get(mime_type, [])
+
+
 def generate_storage_filename(original: str) -> str:
     """Generate a unique storage filename preserving the extension."""
     ext = Path(original).suffix.lower()
@@ -78,17 +115,24 @@ def get_file_path(storage_name: str) -> Path:
 
 
 def store_file(data: bytes, storage_name: str, encrypt: bool = True) -> Path:
-    """Store file data securely. Optionally encrypts at rest."""
+    """Store file data securely using an atomic temporary-file rename."""
     vault = get_vault_path()
     file_path = vault / storage_name
 
     if encrypt:
         from services.crypto import encrypt_bytes
         data = encrypt_bytes(data)
-        # Add .enc extension to encrypted files
         file_path = vault / (storage_name + ".enc")
 
-    file_path.write_bytes(data)
+    temp_path = vault / f".{uuid.uuid4().hex}.tmp"
+    try:
+        with temp_path.open("wb") as destination:
+            destination.write(data)
+            destination.flush()
+            os.fsync(destination.fileno())
+        os.replace(temp_path, file_path)
+    finally:
+        temp_path.unlink(missing_ok=True)
     return file_path
 
 

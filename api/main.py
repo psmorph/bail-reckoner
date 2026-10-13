@@ -35,6 +35,7 @@ from engine import custody_days, search_cases, rule_assessment, database_stats
 from api.database import get_db
 from api.middleware import CurrentUser, get_current_user, validate_jwt_secret
 from services.crypto import get_fernet
+from services.malware_scan import warn_if_scan_disabled
 
 DB_PATH = ROOT / "bail_reckoner.db"
 FRONTEND = ROOT / "frontend"
@@ -50,6 +51,7 @@ async def lifespan(_: FastAPI):
     try:
         validate_jwt_secret()
         get_fernet()
+        warn_if_scan_disabled()
     except Exception as exc:
         raise RuntimeError(f"Startup validation failed: {exc}") from exc
     yield
